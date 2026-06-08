@@ -59,17 +59,9 @@ builder.Services.AddSwaggerGen(c =>
 
 // Database — SQL Server للـ Development / PostgreSQL للـ Production
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-if (builder.Environment.IsProduction())
-{
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(connectionString));
-}
-else
-{
-    builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(connectionString));
-}
+
 
 // Services
 builder.Services.AddScoped<IAuthService, AuthService>();
