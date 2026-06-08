@@ -117,11 +117,11 @@ using (var scope = app.Services.CreateScope())
     await DataSeeder.SeedAsync(db);
 }
 
-if (app.Environment.IsDevelopment())
-{
+//if (app.Environment.IsDevelopment())
+//{
     app.UseSwagger();
     app.UseSwaggerUI();
-}
+//}
 
 app.UseExceptionMiddleware();
 app.UseCors("AllowAll");
