@@ -19,9 +19,8 @@ public class ImageService : IImageService
     }
 
     public async Task<List<string>> UploadImagesAsync(
-        int venueId, int ownerId, List<IFormFile> files)
+    int venueId, int ownerId, List<IFormFile> files)
     {
-        // نتأكد إن الملعب بتاعه
         var venue = await _context.Venues
             .Include(v => v.Images)
             .FirstOrDefaultAsync(v => v.Id == venueId);
@@ -35,35 +34,30 @@ public class ImageService : IImageService
         if (files.Count == 0)
             throw new Exception("No files uploaded");
 
-        // مسار الفولدر اللي هنحفظ فيه الصور
-        var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads", "venues", venueId.ToString());
+        // الحل: بنستخدم ContentRootPath بدل WebRootPath
+        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+        var uploadsFolder = Path.Combine(webRoot, "uploads", "venues", venueId.ToString());
         Directory.CreateDirectory(uploadsFolder);
 
         var uploadedUrls = new List<string>();
 
         foreach (var file in files)
         {
-            // نتحقق إن الملف صورة
             var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
             if (!allowedTypes.Contains(file.ContentType))
                 throw new Exception("Only JPEG, PNG, and WebP images are allowed");
 
-            // نتحقق من حجم الملف (5MB max)
             if (file.Length > 5 * 1024 * 1024)
                 throw new Exception("File size must not exceed 5MB");
 
-            // نعمل اسم فريد للصورة عشان متتكررش
             var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
             var filePath = Path.Combine(uploadsFolder, fileName);
 
-            // نحفظ الصورة على الديسك
             using var stream = new FileStream(filePath, FileMode.Create);
             await file.CopyToAsync(stream);
 
-            // الـ URL اللي هيتبعت للـ Frontend
             var imageUrl = $"/uploads/venues/{venueId}/{fileName}";
 
-            // أول صورة بتبقى Primary تلقائي
             var isPrimary = venue.Images.Count == 0 && uploadedUrls.Count == 0;
 
             var image = new VenueImage
