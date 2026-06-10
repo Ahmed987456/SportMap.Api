@@ -25,11 +25,18 @@ public class SlotService : ISlotService
         var dayOfWeek = targetDate.DayOfWeek;
 
         // نجيب الـ Slots المتاحة في نفس اليوم
+        var currentTime = TimeOnly.FromDateTime(DateTime.Now);
+
         var slots = await _context.TimeSlots
             .Where(s =>
                 s.VenueId == venueId &&
                 s.IsAvailable &&
-                s.DayOfWeek == dayOfWeek)
+                s.DayOfWeek == dayOfWeek &&
+                (
+                    targetDate > DateOnly.FromDateTime(DateTime.Today)
+                    ||
+                    s.StartTime > currentTime
+                ))
             .ToListAsync();
 
         // نشيل اللي اتحجز في التاريخ ده
