@@ -84,7 +84,15 @@ public class VenueService : IVenueService
             TotalCount = totalCount
         };
     }
-
+    public async Task<List<VenueResponse>> GetMyVenuesAsync(int ownerId)
+    {
+        return await _context.Venues
+            .Include(v => v.Owner)
+            .Include(v => v.Images)
+            .Where(v => v.OwnerId == ownerId)
+            .Select(v => ToResponse(v))
+            .ToListAsync();
+    }
     public async Task<VenueResponse> GetByIdAsync(int id)
     {
         var venue = await _context.Venues

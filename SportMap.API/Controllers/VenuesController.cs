@@ -33,6 +33,18 @@ public class VenuesController : ControllerBase
     }
 
     /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يشوف ملاعبه هو بس
+    /// </summary>
+    [HttpGet("my")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> GetMyVenues()
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var venues = await _venueService.GetMyVenuesAsync(ownerId);
+        return Ok(ApiResponse<List<VenueResponse>>.Ok(venues));
+    }
+
+    /// <summary>
     /// 🔓 متاح للكل — يشوف تفاصيل ملعب معين بالصور والمعلومات الكاملة
     /// </summary>
     [HttpGet("{id}")]
