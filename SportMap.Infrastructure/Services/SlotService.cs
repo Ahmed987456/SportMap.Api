@@ -29,6 +29,7 @@ public class SlotService : ISlotService
 
         var slots = await _context.TimeSlots
             .Where(s =>
+                !s.IsDeleted&&
                 s.VenueId == venueId &&
                 s.IsAvailable &&
                 s.DayOfWeek == dayOfWeek &&
@@ -66,6 +67,7 @@ public class SlotService : ISlotService
             throw new Exception("Unauthorized");
 
         var overlap = await _context.TimeSlots.AnyAsync(s =>
+            !s.IsDeleted &&
             s.VenueId == venueId &&
             s.DayOfWeek == request.DayOfWeek &&
             s.StartTime < request.EndTime &&

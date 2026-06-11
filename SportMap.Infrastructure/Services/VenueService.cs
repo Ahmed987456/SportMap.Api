@@ -17,7 +17,7 @@ public class VenueService : IVenueService
         _context = context;
     }
 
-    public async Task<PagedResponse<VenueResponse>> GetAllAsync(VenueFilter filter)
+    public async Task<PagedResponse<VenueResponse>> GetAllAsync(VenueFilter filter) 
     {
         var query = _context.Venues
             .Include(v => v.Owner)
