@@ -67,4 +67,16 @@ public class SlotsController : ControllerBase
         await _slotService.ToggleAvailabilityAsync(slotId, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Slot availability updated"));
     }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يشوف كل المواعيد الثابتة في ملعبه
+    /// </summary>
+    [HttpGet("all")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> GetAllSlots(int venueId)
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var slots = await _slotService.GetAllVenueSlotsAsync(venueId, ownerId);
+        return Ok(ApiResponse<List<SlotResponse>>.Ok(slots));
+    }
 }

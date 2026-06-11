@@ -89,6 +89,22 @@ public class SlotService : ISlotService
         return ToResponse(slot);
     }
 
+    public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
+    {
+        var venue = await _context.Venues
+            .FirstOrDefaultAsync(v => v.Id == venueId);
+
+        if (venue == null)
+            throw new Exception("Venue not found");
+
+        if (venue.OwnerId != ownerId)
+            throw new Exception("Unauthorized");
+
+        return await _context.TimeSlots
+            .Where(s => s.VenueId == venueId)
+            .Select(s => ToResponse(s))
+            .ToListAsync();
+    }
     public async Task DeleteAsync(int slotId, int ownerId)
     {
         var slot = await _context.TimeSlots
