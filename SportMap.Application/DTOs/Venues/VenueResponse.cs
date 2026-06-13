@@ -14,6 +14,8 @@ public class VenueResponse
     public string Surface { get; set; } = string.Empty;
     public int Capacity { get; set; }
     public bool IsApproved { get; set; }
+
+    public bool IsDeleted { get; set; }
     public string OwnerName { get; set; } = string.Empty;
 
     // ✅ جديد — المسافة بالكيلومتر من موقع اللاعب

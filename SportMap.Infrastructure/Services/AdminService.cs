@@ -81,7 +81,10 @@ public class AdminService : IAdminService
         PricePerHour = venue.PricePerHour,
         Surface = venue.Surface.ToString(),
         Capacity = venue.Capacity,
+
         IsApproved = venue.IsApproved,
+        IsDeleted = venue.IsDeleted,
+
         OwnerName = venue.Owner.Name
     };
 }
