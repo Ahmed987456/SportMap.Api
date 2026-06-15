@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Hosting;
+﻿using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Infrastructure.Data;
@@ -10,16 +12,22 @@ namespace SportMap.Infrastructure.Services;
 public class ImageService : IImageService
 {
     private readonly AppDbContext _context;
-    private readonly IWebHostEnvironment _env;
+    private readonly Cloudinary _cloudinary;
 
-    public ImageService(AppDbContext context, IWebHostEnvironment env)
+    public ImageService(AppDbContext context, IConfiguration config)
     {
         _context = context;
-        _env = env;
+
+        var account = new Account(
+            config["Cloudinary:CloudName"],
+            config["Cloudinary:ApiKey"],
+            config["Cloudinary:ApiSecret"]
+        );
+        _cloudinary = new Cloudinary(account);
     }
 
     public async Task<List<string>> UploadImagesAsync(
-    int venueId, int ownerId, List<IFormFile> files)
+        int venueId, int ownerId, List<IFormFile> files)
     {
         var venue = await _context.Venues
             .Include(v => v.Images)
@@ -34,11 +42,6 @@ public class ImageService : IImageService
         if (files.Count == 0)
             throw new Exception("No files uploaded");
 
-        // الحل: بنستخدم ContentRootPath بدل WebRootPath
-        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-        var uploadsFolder = Path.Combine(webRoot, "uploads", "venues", venueId.ToString());
-        Directory.CreateDirectory(uploadsFolder);
-
         var uploadedUrls = new List<string>();
 
         foreach (var file in files)
@@ -50,13 +53,23 @@ public class ImageService : IImageService
             if (file.Length > 5 * 1024 * 1024)
                 throw new Exception("File size must not exceed 5MB");
 
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
+            // رفع على Cloudinary
+            using var stream = file.OpenReadStream();
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(file.FileName, stream),
+                Folder = $"sportmap/venues/{venueId}",
+                Transformation = new Transformation()
+                    .Width(800).Height(600).Crop("fill")
+            };
 
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await file.CopyToAsync(stream);
+            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            var imageUrl = $"/uploads/venues/{venueId}/{fileName}";
+            if (uploadResult.Error != null)
+                throw new Exception(uploadResult.Error.Message);
+
+            // الـ URL بتاع Cloudinary
+            var imageUrl = uploadResult.SecureUrl.ToString();
 
             var isPrimary = venue.Images.Count == 0 && uploadedUrls.Count == 0;
 
@@ -87,12 +100,11 @@ public class ImageService : IImageService
         if (image.Venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        // نمسح الملف من الديسك
-        var filePath = Path.Combine(_env.WebRootPath, image.ImageUrl.TrimStart('/'));
-        if (File.Exists(filePath))
-            File.Delete(filePath);
+        // حذف من Cloudinary
+        var publicId = GetPublicIdFromUrl(image.ImageUrl);
+        if (!string.IsNullOrEmpty(publicId))
+            await _cloudinary.DestroyAsync(new DeletionParams(publicId));
 
-        // Soft Delete في الـ Database
         image.IsDeleted = true;
         image.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -110,7 +122,6 @@ public class ImageService : IImageService
         if (image.Venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        // نشيل الـ Primary من كل الصور
         var allImages = await _context.VenueImages
             .Where(i => i.VenueId == image.VenueId)
             .ToListAsync();
@@ -118,8 +129,31 @@ public class ImageService : IImageService
         foreach (var img in allImages)
             img.IsPrimary = false;
 
-        // نحط الـ Primary على الصورة دي بس
         image.IsPrimary = true;
         await _context.SaveChangesAsync();
+    }
+
+    private string GetPublicIdFromUrl(string url)
+    {
+        // بنجيب الـ Public ID من الـ URL
+        // مثال: https://res.cloudinary.com/xxx/image/upload/v123/sportmap/venues/1/abc.jpg
+        // Public ID: sportmap/venues/1/abc
+        try
+        {
+            var uri = new Uri(url);
+            var path = uri.AbsolutePath;
+            var uploadIndex = path.IndexOf("/upload/");
+            if (uploadIndex < 0) return "";
+            var afterUpload = path[(uploadIndex + 8)..];
+            // شيل الـ version لو موجود
+            if (afterUpload.StartsWith("v") && afterUpload.Contains('/'))
+                afterUpload = afterUpload[(afterUpload.IndexOf('/') + 1)..];
+            // شيل الـ extension
+            var dotIndex = afterUpload.LastIndexOf('.');
+            if (dotIndex > 0)
+                afterUpload = afterUpload[..dotIndex];
+            return afterUpload;
+        }
+        catch { return ""; }
     }
 }
