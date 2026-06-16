@@ -183,11 +183,18 @@ public class VenueService : IVenueService
         Surface = venue.Surface.ToString(),
         Capacity = venue.Capacity,
         IsApproved = venue.IsApproved,
+        IsDeleted = venue.IsDeleted,
         OwnerName = venue.Owner.Name,
         PrimaryImageUrl = venue.Images
-            .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
-        ImageUrls = venue.Images
-            .Select(i => i.ImageUrl)
-            .ToList()
+        .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+        Images = venue.Images
+        .Where(i => !i.IsDeleted)
+        .Select(i => new VenueImageResponse
+        {
+            Id = i.Id,
+            ImageUrl = i.ImageUrl,
+            IsPrimary = i.IsPrimary
+        })
+        .ToList()
     };
 }

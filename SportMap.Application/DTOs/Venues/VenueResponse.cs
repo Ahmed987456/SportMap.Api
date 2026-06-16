@@ -14,15 +14,11 @@ public class VenueResponse
     public string Surface { get; set; } = string.Empty;
     public int Capacity { get; set; }
     public bool IsApproved { get; set; }
-
     public bool IsDeleted { get; set; }
     public string OwnerName { get; set; } = string.Empty;
-
-    // ✅ جديد — المسافة بالكيلومتر من موقع اللاعب
-    // Nullable لأن مش دايماً اللاعب بيبعت موقعه
     public double? DistanceInKm { get; set; }
 
+    // ✅ بدل string بقت Object فيها Id
     public string? PrimaryImageUrl { get; set; }
-    public List<string> ImageUrls { get; set; } = new();
-
+    public List<VenueImageResponse> Images { get; set; } = new();
 }
