@@ -10,44 +10,39 @@ namespace SportMap.Infrastructure.Services;
 public class ReviewService : IReviewService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public ReviewService(AppDbContext context)
+    public ReviewService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<ReviewResponse> CreateAsync(ReviewRequest request, int playerId)
     {
-        // 1. نتأكد إن الـ Rating بين 1 و 5
         if (request.Rating < 1 || request.Rating > 5)
             throw new Exception("Rating must be between 1 and 5");
 
-        // 2. نجيب الـ Booking ونتأكد إنه بتاع اللاعب ده
         var booking = await _context.Bookings
             .Include(b => b.Venue)
+            .Include(b => b.Player)
             .FirstOrDefaultAsync(b => b.Id == request.BookingId);
 
         if (booking == null)
             throw new Exception("Booking not found");
 
-        // 3. نتأكد إن الـ Booking بتاع اللاعب ده بالظبط
         if (booking.PlayerId != playerId)
             throw new Exception("Unauthorized");
 
-        // 4. نتأكد إن الحجز Confirmed
-        // منطقي مش هيعمل Review على حجز ملغي أو لسه Pending
         if (booking.Status != BookingStatus.Confirmed)
             throw new Exception("Can only review confirmed bookings");
 
-        // 5. نتأكد إنه مش عامل Review على نفس الـ Booking قبل كده
         var alreadyReviewed = await _context.Reviews
             .AnyAsync(r => r.BookingId == request.BookingId);
 
         if (alreadyReviewed)
             throw new Exception("You already reviewed this booking");
 
-        // 6. نعمل الـ Review
-        // الـ VenueId بنجيبه من الـ Booking مش من المستخدم
         var review = new Review
         {
             BookingId = request.BookingId,
@@ -59,6 +54,13 @@ public class ReviewService : IReviewService
 
         _context.Reviews.Add(review);
         await _context.SaveChangesAsync();
+
+        // إشعار لصاحب الملعب
+        await _notificationService.SendToUserAsync(
+            booking.Venue.OwnerId,
+            "تقييم جديد ⭐",
+            $"{booking.Player.Name} عمل تقييم {request.Rating}/5 على {booking.Venue.Name}"
+        );
 
         return await GetReviewResponseAsync(review.Id);
     }
@@ -73,8 +75,6 @@ public class ReviewService : IReviewService
             .Select(r => ToResponse(r))
             .ToListAsync();
     }
-
-    // ===== Private Helpers =====
 
     private async Task<ReviewResponse> GetReviewResponseAsync(int reviewId)
     {

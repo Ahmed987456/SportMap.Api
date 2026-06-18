@@ -17,4 +17,5 @@ public class User : BaseEntity
     // Navigation Properties
     public ICollection<Venue> Venues { get; set; } = new List<Venue>();
     public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<UserDevice> Devices { get; set; } = new List<UserDevice>();
 }

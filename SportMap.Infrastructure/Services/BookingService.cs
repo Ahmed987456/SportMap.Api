@@ -10,15 +10,16 @@ namespace SportMap.Infrastructure.Services;
 public class BookingService : IBookingService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public BookingService(AppDbContext context)
+    public BookingService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
-        // 1. نتأكد إن الملعب موجود ومتوافق عليه
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == request.VenueId);
 
@@ -28,7 +29,6 @@ public class BookingService : IBookingService
         if (!venue.IsApproved)
             throw new Exception("Venue is not approved yet");
 
-        // 2. نتأكد إن الـ Slot موجود وتابع للملعب ده ومتاح
         var slot = await _context.TimeSlots
             .FirstOrDefaultAsync(s =>
                 s.Id == request.TimeSlotId &&
@@ -40,8 +40,6 @@ public class BookingService : IBookingService
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
 
-        // 3. نتأكد إن نفس الـ Slot مش محجوز في نفس التاريخ
-        // يعني ملعب + slot + تاريخ = وحيد
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
             b.BookingDate == request.BookingDate &&
@@ -50,12 +48,13 @@ public class BookingService : IBookingService
         if (alreadyBooked)
             throw new Exception("This slot is already booked for the selected date");
 
-        // 4. نحسب السعر تلقائي
-        // الفرق بين StartTime و EndTime بالساعات × السعر في الساعة
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         var totalPrice = (decimal)hours * venue.PricePerHour;
 
-        // 5. نعمل الحجز
+        // نجيب اسم اللاعب
+        var player = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == playerId);
+
         var booking = new Booking
         {
             VenueId = request.VenueId,
@@ -69,6 +68,13 @@ public class BookingService : IBookingService
 
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
+
+        // إشعار لصاحب الملعب
+        await _notificationService.SendToUserAsync(
+            venue.OwnerId,
+            "حجز جديد! 🎉",
+            $"{player?.Name ?? "لاعب"} حجز {venue.Name} يوم {request.BookingDate}"
+        );
 
         return await GetBookingResponseAsync(booking.Id);
     }
@@ -88,7 +94,6 @@ public class BookingService : IBookingService
 
     public async Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId)
     {
-        // نتأكد إن الملعب ده فعلاً بتاعه
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
 
@@ -117,7 +122,6 @@ public class BookingService : IBookingService
         if (booking == null)
             throw new Exception("Booking not found");
 
-        // اللاعب يقدر يلغي حجزه بس مش حجز غيره
         if (booking.PlayerId != playerId)
             throw new Exception("Unauthorized");
 
@@ -133,12 +137,12 @@ public class BookingService : IBookingService
     {
         var booking = await _context.Bookings
             .Include(b => b.Venue)
+            .Include(b => b.Player)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null)
             throw new Exception("Booking not found");
 
-        // صاحب الملعب يقدر يوافق على حجوزات ملعبه بس
         if (booking.Venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
@@ -148,9 +152,14 @@ public class BookingService : IBookingService
         booking.Status = BookingStatus.Confirmed;
         booking.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
-    }
 
-    // ===== Private Helpers =====
+        // إشعار للاعب
+        await _notificationService.SendToUserAsync(
+            booking.PlayerId,
+            "تم تأكيد حجزك ✅",
+            $"حجزك في {booking.Venue.Name} يوم {booking.BookingDate} اتأكد!"
+        );
+    }
 
     private async Task<BookingResponse> GetBookingResponseAsync(int bookingId)
     {

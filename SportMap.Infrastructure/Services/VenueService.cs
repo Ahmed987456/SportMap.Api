@@ -4,6 +4,7 @@ using SportMap.Application.DTOs.Venues;
 using SportMap.Application.Helpers;
 using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
+using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
 
 namespace SportMap.Infrastructure.Services;
@@ -11,10 +12,12 @@ namespace SportMap.Infrastructure.Services;
 public class VenueService : IVenueService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public VenueService(AppDbContext context)
+    public VenueService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResponse<VenueResponse>> GetAllAsync(VenueFilter filter) 
@@ -124,6 +127,24 @@ public class VenueService : IVenueService
 
         _context.Venues.Add(venue);
         await _context.SaveChangesAsync();
+
+        // إشعار للأدمن
+        var owner = await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == ownerId);
+
+        var admins = await _context.Users
+            .Where(u => u.Role == UserRole.SuperAdmin)
+            .Select(u => u.Id)
+            .ToListAsync();
+
+        foreach (var adminId in admins)
+        {
+            await _notificationService.SendToUserAsync(
+                adminId,
+                "ملعب جديد ينتظر موافقتك 🏟️",
+                $"{owner?.Name ?? "صاحب ملعب"} أضاف ملعب جديد: {venue.Name}"
+            );
+        }
 
         return await GetByIdAsync(venue.Id);
     }

@@ -71,6 +71,7 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // Validation
 builder.Services.AddFluentValidationAutoValidation();
