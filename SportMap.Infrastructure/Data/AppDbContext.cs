@@ -14,7 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Payment> Payments { get; set; }
     public DbSet<Review> Reviews { get; set; }
     public DbSet<VenueImage> VenueImages { get; set; }
-
+    public DbSet<Notification> Notifications { get; set; }
     public DbSet<UserDevice> UserDevices { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Review>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<VenueImage>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<UserDevice>().HasQueryFilter(x => !x.IsDeleted);
+        modelBuilder.Entity<Notification>().HasQueryFilter(x => !x.IsDeleted);
 
         // Booking Relationships
         modelBuilder.Entity<Booking>()

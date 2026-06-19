@@ -3,10 +3,11 @@ using FirebaseAdmin.Messaging;
 using Google.Apis.Auth.OAuth2;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using SportMap.Application.DTOs.Notifications;
 using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Infrastructure.Data;
-
+using DomainNotification = SportMap.Domain.Entities.Notification;
 namespace SportMap.Infrastructure.Services;
 
 public class NotificationService : INotificationService
@@ -17,7 +18,6 @@ public class NotificationService : INotificationService
     {
         _context = context;
 
-        // Initialize Firebase مرة واحدة بس
         if (FirebaseApp.DefaultInstance == null)
         {
             var credentialJson = config["Firebase:CredentialJson"];
@@ -32,13 +32,21 @@ public class NotificationService : INotificationService
 
     public async Task SendToUserAsync(int userId, string title, string body)
     {
-        // نجيب كل الـ Tokens بتاعت المستخدم
+        // حفظ في Database
+        _context.Notifications.Add(new DomainNotification
+        {
+            UserId = userId,
+            Title = title,
+            Body = body,
+            IsRead = false
+        });
+        await _context.SaveChangesAsync();
+
+        // بعت Push Notification
         var tokens = await _context.UserDevices
             .Where(d => d.UserId == userId)
             .Select(d => d.FcmToken)
             .ToListAsync();
-
-        if (!tokens.Any()) return;
 
         foreach (var token in tokens)
         {
@@ -47,30 +55,16 @@ public class NotificationService : INotificationService
                 var message = new Message
                 {
                     Token = token,
-                    Notification = new Notification
+                    Notification = new FirebaseAdmin.Messaging.Notification
                     {
                         Title = title,
                         Body = body
-                    },
-                    Android = new AndroidConfig
-                    {
-                        Notification = new AndroidNotification
-                        {
-                            Sound = "default",
-                            Priority = NotificationPriority.HIGH
-                        }
-                    },
-                    Apns = new ApnsConfig
-                    {
-                        Aps = new Aps { Sound = "default" }
                     }
                 };
-
                 await FirebaseMessaging.DefaultInstance.SendAsync(message);
             }
             catch
             {
-                // لو الـ Token انتهى نحذفه
                 var device = await _context.UserDevices
                     .FirstOrDefaultAsync(d => d.FcmToken == token);
                 if (device != null)
@@ -82,9 +76,49 @@ public class NotificationService : INotificationService
         }
     }
 
+    public async Task<List<NotificationDto>> GetUserNotificationsAsync(int userId)
+    {
+        return await _context.Notifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(20)
+            .Select(n => new NotificationDto
+            {
+                Id = n.Id,
+                Title = n.Title,
+                Body = n.Body,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task MarkAsReadAsync(int notificationId, int userId)
+    {
+        var notification = await _context.Notifications
+            .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == userId);
+
+        if (notification == null)
+            throw new Exception("Notification not found");
+
+        notification.IsRead = true;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task MarkAllAsReadAsync(int userId)
+    {
+        var notifications = await _context.Notifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ToListAsync();
+
+        foreach (var n in notifications)
+            n.IsRead = true;
+
+        await _context.SaveChangesAsync();
+    }
+
     public async Task RegisterDeviceAsync(int userId, string fcmToken)
     {
-        // نتأكد مش مسجل قبل كده
         var exists = await _context.UserDevices
             .AnyAsync(d => d.UserId == userId && d.FcmToken == fcmToken);
 
