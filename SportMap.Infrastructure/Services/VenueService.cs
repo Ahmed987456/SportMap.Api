@@ -6,7 +6,6 @@ using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
-
 namespace SportMap.Infrastructure.Services;
 
 public class VenueService : IVenueService
@@ -192,6 +191,41 @@ public class VenueService : IVenueService
         await _context.SaveChangesAsync();
     }
 
+    public async Task<OwnerDashboardResponse> GetOwnerDashboardAsync(int ownerId)
+    {
+        var venueIds = await _context.Venues
+            .Where(v => v.OwnerId == ownerId)
+            .Select(v => v.Id)
+            .ToListAsync();
+
+        var totalVenues = venueIds.Count;
+
+        var bookings = await _context.Bookings
+            .Where(b => venueIds.Contains(b.VenueId))
+            .ToListAsync();
+
+        var totalBookings = bookings.Count;
+
+        var totalRevenue = bookings
+            .Where(b => b.PaymentStatus == Domain.Enums.PaymentStatus.Paid)
+            .Sum(b => b.TotalPrice);
+
+        var reviews = await _context.Reviews
+            .Where(r => venueIds.Contains(r.VenueId))
+            .ToListAsync();
+
+        var averageRating = reviews.Any()
+            ? reviews.Average(r => r.Rating)
+            : 0;
+
+        return new OwnerDashboardResponse
+        {
+            TotalVenues = totalVenues,
+            TotalBookings = totalBookings,
+            TotalRevenue = totalRevenue,
+            AverageRating = averageRating
+        };
+    }
     private static VenueResponse ToResponse(Venue venue) => new()
     {
         Id = venue.Id,

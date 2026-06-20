@@ -45,6 +45,20 @@ public class VenuesController : ControllerBase
     }
 
     /// <summary>
+    /// Dashboard Statistics
+    /// </summary>
+    [HttpGet("owner/dashboard")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> Dashboard()
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var result = await _venueService.GetOwnerDashboardAsync(ownerId);
+
+        return Ok(ApiResponse<OwnerDashboardResponse>.Ok(result));
+    }
+
+    /// <summary>
     /// 🔓 متاح للكل — يشوف تفاصيل ملعب معين بالصور والمعلومات الكاملة
     /// </summary>
     [HttpGet("{id}")]

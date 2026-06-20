@@ -13,4 +13,6 @@ public interface IVenueService
     Task<VenueResponse> CreateAsync(VenueRequest request, int ownerId);
     Task<VenueResponse> UpdateAsync(int id, VenueRequest request, int ownerId);
     Task DeleteAsync(int id, int ownerId);
+
+    Task<OwnerDashboardResponse> GetOwnerDashboardAsync(int ownerId);
 }
