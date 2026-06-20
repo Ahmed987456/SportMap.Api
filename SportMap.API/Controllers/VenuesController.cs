@@ -103,4 +103,18 @@ public class VenuesController : ControllerBase
         await _venueService.DeleteAsync(id, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Venue deleted successfully"));
     }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يعرض بيانات الرسوم البيانية والإحصائيات
+    /// </summary>
+    [HttpGet("analytics")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> GetAnalytics()
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var result = await _venueService.GetAnalyticsAsync(ownerId);
+
+        return Ok(ApiResponse<OwnerAnalyticsResponse>.Ok(result));
+    }
 }

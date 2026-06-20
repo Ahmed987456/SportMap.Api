@@ -6,6 +6,7 @@ using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
+using System.Globalization;
 namespace SportMap.Infrastructure.Services;
 
 public class VenueService : IVenueService
@@ -224,6 +225,55 @@ public class VenueService : IVenueService
             TotalBookings = totalBookings,
             TotalRevenue = totalRevenue,
             AverageRating = averageRating
+        };
+    }
+    public async Task<OwnerAnalyticsResponse> GetAnalyticsAsync(int ownerId)
+    {
+        var venueIds = await _context.Venues
+            .Where(v => v.OwnerId == ownerId)
+            .Select(v => v.Id)
+            .ToListAsync();
+
+        var bookings = await _context.Bookings
+            .Include(b => b.Venue)
+            .Where(b => venueIds.Contains(b.VenueId))
+            .ToListAsync();
+
+        var weeklyBookings = bookings
+            .GroupBy(b => b.BookingDate.ToDateTime(TimeOnly.MinValue).DayOfWeek)
+            .Select(g => new WeeklyBookingDto
+            {
+                Day = g.Key.ToString(),
+                Bookings = g.Count()
+            })
+            .ToList();
+
+        var monthlyRevenue = bookings
+            .Where(b => b.PaymentStatus == PaymentStatus.Paid)
+            .GroupBy(b => b.BookingDate.Month)
+            .Select(g => new MonthlyRevenueDto
+            {
+                Month = CultureInfo.CurrentCulture.DateTimeFormat.GetAbbreviatedMonthName(g.Key),
+                Revenue = g.Sum(x => x.TotalPrice)
+            })
+            .ToList();
+
+        var topVenues = bookings
+            .GroupBy(b => b.Venue.Name)
+            .Select(g => new TopVenueDto
+            {
+                VenueName = g.Key,
+                Bookings = g.Count()
+            })
+            .OrderByDescending(x => x.Bookings)
+            .Take(5)
+            .ToList();
+
+        return new OwnerAnalyticsResponse
+        {
+            WeeklyBookings = weeklyBookings,
+            MonthlyRevenue = monthlyRevenue,
+            TopVenues = topVenues
         };
     }
     private static VenueResponse ToResponse(Venue venue) => new()

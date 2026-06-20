@@ -15,4 +15,7 @@ public interface IVenueService
     Task DeleteAsync(int id, int ownerId);
 
     Task<OwnerDashboardResponse> GetOwnerDashboardAsync(int ownerId);
+
+    Task<OwnerAnalyticsResponse> GetAnalyticsAsync(int ownerId);
+
 }
