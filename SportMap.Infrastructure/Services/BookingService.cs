@@ -73,7 +73,8 @@ public class BookingService : IBookingService
         await _notificationService.SendToUserAsync(
             venue.OwnerId,
             "حجز جديد! 🎉",
-            $"{player?.Name ?? "لاعب"} حجز {venue.Name} يوم {request.BookingDate}"
+            $"{player?.Name ?? "لاعب"} حجز {venue.Name} يوم {request.BookingDate}",
+            $"/owner/bookings/{venue.Id}"
         );
 
         return await GetBookingResponseAsync(booking.Id);
@@ -157,7 +158,8 @@ public class BookingService : IBookingService
         await _notificationService.SendToUserAsync(
             booking.PlayerId,
             "تم تأكيد حجزك ✅",
-            $"حجزك في {booking.Venue.Name} يوم {booking.BookingDate} اتأكد!"
+            $"حجزك في {booking.Venue.Name} يوم {booking.BookingDate} اتأكد!",
+             "/player/bookings"
         );
     }
 

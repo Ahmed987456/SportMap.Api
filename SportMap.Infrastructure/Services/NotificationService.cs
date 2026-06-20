@@ -7,7 +7,7 @@ using SportMap.Application.DTOs.Notifications;
 using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Infrastructure.Data;
-using DomainNotification = SportMap.Domain.Entities.Notification;
+
 namespace SportMap.Infrastructure.Services;
 
 public class NotificationService : INotificationService
@@ -30,15 +30,16 @@ public class NotificationService : INotificationService
         }
     }
 
-    public async Task SendToUserAsync(int userId, string title, string body)
+    public async Task SendToUserAsync(int userId, string title, string body, string? link = null)
     {
         // حفظ في Database
-        _context.Notifications.Add(new DomainNotification
+        _context.Notifications.Add(new Notification
         {
             UserId = userId,
             Title = title,
             Body = body,
-            IsRead = false
+            IsRead = false,
+            Link = link 
         });
         await _context.SaveChangesAsync();
 
@@ -88,7 +89,8 @@ public class NotificationService : INotificationService
                 Title = n.Title,
                 Body = n.Body,
                 IsRead = n.IsRead,
-                CreatedAt = n.CreatedAt
+                CreatedAt = n.CreatedAt,
+                Link = n.Link
             })
             .ToListAsync();
     }

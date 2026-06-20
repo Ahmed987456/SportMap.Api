@@ -59,7 +59,8 @@ public class ReviewService : IReviewService
         await _notificationService.SendToUserAsync(
             booking.Venue.OwnerId,
             "تقييم جديد ⭐",
-            $"{booking.Player.Name} عمل تقييم {request.Rating}/5 على {booking.Venue.Name}"
+            $"{booking.Player.Name} عمل تقييم {request.Rating}/5 على {booking.Venue.Name}",
+            $"/owner/venues/{booking.VenueId}"
         );
 
         return await GetReviewResponseAsync(review.Id);

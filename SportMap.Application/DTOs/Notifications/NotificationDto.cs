@@ -7,4 +7,5 @@ public class NotificationDto
     public string Body { get; set; } = string.Empty;
     public bool IsRead { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Link { get; set; } // ← جديد
 }

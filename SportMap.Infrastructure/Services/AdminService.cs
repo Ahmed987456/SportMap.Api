@@ -8,10 +8,12 @@ namespace SportMap.Infrastructure.Services;
 public class AdminService : IAdminService
 {
     private readonly AppDbContext _context;
+    private readonly INotificationService _notificationService;
 
-    public AdminService(AppDbContext context)
+    public AdminService(AppDbContext context, INotificationService notificationService)
     {
         _context = context;
+        _notificationService = notificationService;
     }
 
     public async Task<List<VenueResponse>> GetPendingVenuesAsync()
@@ -51,6 +53,14 @@ public class AdminService : IAdminService
         venue.IsApproved = true;
         venue.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        // إشعار لصاحب الملعب
+        await _notificationService.SendToUserAsync(
+            venue.OwnerId,
+            "تم اعتماد ملعبك ✅",
+            $"تم الموافقة على ملعب {venue.Name} وأصبح متاحاً للحجز!",
+            $"/owner/venues"
+        );
     }
 
     public async Task SuspendVenueAsync(int venueId)
