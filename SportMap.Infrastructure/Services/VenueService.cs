@@ -239,15 +239,39 @@ public class VenueService : IVenueService
             .Where(b => venueIds.Contains(b.VenueId))
             .ToListAsync();
 
-        var weeklyBookings = bookings
+        var daysOrder = new[]
+{
+    DayOfWeek.Saturday,
+    DayOfWeek.Sunday,
+    DayOfWeek.Monday,
+    DayOfWeek.Tuesday,
+    DayOfWeek.Wednesday,
+    DayOfWeek.Thursday,
+    DayOfWeek.Friday
+};
+
+        var dayNames = new Dictionary<DayOfWeek, string>
+{
+    { DayOfWeek.Saturday, "Sat" },
+    { DayOfWeek.Sunday, "Sun" },
+    { DayOfWeek.Monday, "Mon" },
+    { DayOfWeek.Tuesday, "Tue" },
+    { DayOfWeek.Wednesday, "Wed" },
+    { DayOfWeek.Thursday, "Thu" },
+    { DayOfWeek.Friday, "Fri" }
+};
+
+        var grouped = bookings
             .GroupBy(b => b.BookingDate.ToDateTime(TimeOnly.MinValue).DayOfWeek)
-            .Select(g => new WeeklyBookingDto
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var weeklyBookings = daysOrder
+            .Select(day => new WeeklyBookingDto
             {
-                Day = g.Key.ToString(),
-                Bookings = g.Count()
+                Day = dayNames[day],
+                Bookings = grouped.ContainsKey(day) ? grouped[day] : 0
             })
             .ToList();
-
         var monthlyRevenue = bookings
             .Where(b => b.PaymentStatus == PaymentStatus.Paid)
             .GroupBy(b => b.BookingDate.Month)
