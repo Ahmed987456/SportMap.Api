@@ -94,8 +94,37 @@ public class AdminService : IAdminService
 
             TotalVenues = await _context.Venues.CountAsync(),
 
-            TotalBookings = await _context.Bookings.CountAsync()
+            TotalBookings = await _context.Bookings.CountAsync(),
+
+            PendingVenues = await _context.Venues
+            .CountAsync(x => !x.IsApproved && !x.IsDeleted),
+
+            ApprovedVenues = await _context.Venues
+            .CountAsync(x => x.IsApproved && !x.IsDeleted),
+
+            SuspendedVenues = await _context.Venues
+    .IgnoreQueryFilters()
+    .CountAsync(x => !x.IsApproved && x.IsDeleted)
         };
+    }
+    public async Task<List<VenueResponse>> GetApprovedVenuesAsync()
+    {
+        return await _context.Venues
+            .Include(v => v.Owner)
+            .Include(v => v.Images)
+            .Where(v => v.IsApproved)
+            .Select(v => ToResponse(v))
+            .ToListAsync();
+    }
+    public async Task<List<VenueResponse>> GetSuspendedVenuesAsync()
+    {
+        return await _context.Venues
+            .IgnoreQueryFilters()
+            .Include(v => v.Owner)
+            .Include(v => v.Images)
+            .Where(v => !v.IsApproved && v.IsDeleted)
+            .Select(v => ToResponse(v))
+            .ToListAsync();
     }
 
     // نفس الـ ToResponse اللي في VenueService

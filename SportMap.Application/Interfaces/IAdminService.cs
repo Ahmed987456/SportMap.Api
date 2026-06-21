@@ -18,4 +18,8 @@ public interface IAdminService
     Task SuspendVenueAsync(int venueId);
 
     Task<AdminDashboardStatsResponse> GetDashboardStatsAsync();
+
+    Task<List<VenueResponse>> GetApprovedVenuesAsync();
+
+    Task<List<VenueResponse>> GetSuspendedVenuesAsync();
 }

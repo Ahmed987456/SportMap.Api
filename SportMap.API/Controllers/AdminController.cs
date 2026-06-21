@@ -55,7 +55,28 @@ public class AdminController : ControllerBase
             ApiResponse<AdminDashboardStatsResponse>.Ok(stats)
         );
     }
+    /// <summary>
+    /// 👑 Approved Venues
+    /// </summary>
+    [HttpGet("approved")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> GetApprovedVenues()
+    {
+        var venues = await _adminService.GetApprovedVenuesAsync();
 
+        return Ok(ApiResponse<List<VenueResponse>>.Ok(venues));
+    }
+    /// <summary>
+    /// 👑 Suspended Venues
+    /// </summary>
+    [HttpGet("suspended")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> GetSuspendedVenues()
+    {
+        var venues = await _adminService.GetSuspendedVenuesAsync();
+
+        return Ok(ApiResponse<List<VenueResponse>>.Ok(venues));
+    }
     /// <summary>
     /// 👑 أدمن فقط — يوافق على ملعب عشان يظهر للاعبين
     /// </summary>
