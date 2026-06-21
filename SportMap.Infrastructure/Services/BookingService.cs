@@ -74,7 +74,7 @@ public class BookingService : IBookingService
             venue.OwnerId,
             "حجز جديد! 🎉",
             $"{player?.Name ?? "لاعب"} حجز {venue.Name} يوم {request.BookingDate}",
-            $"/owner/bookings/{venue.Id}"
+            $"/owner/venues/{venue.Id}/bookings"
         );
 
         return await GetBookingResponseAsync(booking.Id);
@@ -162,7 +162,7 @@ public class BookingService : IBookingService
              "/player/bookings"
         );
     }
-
+        
     private async Task<BookingResponse> GetBookingResponseAsync(int bookingId)
     {
         var booking = await _context.Bookings

@@ -143,7 +143,7 @@ public class VenueService : IVenueService
                 adminId,
                 "ملعب جديد ينتظر موافقتك 🏟️",
                 $"{owner?.Name ?? "صاحب ملعب"} أضاف ملعب جديد: {venue.Name}",
-                "/admin/venues/pending"
+                "/admin"
             );
         }
 
