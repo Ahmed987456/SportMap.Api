@@ -150,6 +150,25 @@ public class AdminService : IAdminService
 
     // نفس الـ ToResponse اللي في VenueService
     // بس هنا محتاجينها عشان AdminService مش بيورث منه
+
+    public async Task ResetDemoDataAsync()
+    {
+        await _context.Notifications.ExecuteDeleteAsync();
+
+        await _context.Reviews.ExecuteDeleteAsync();
+
+        await _context.Bookings.ExecuteDeleteAsync();
+
+        await _context.TimeSlots.ExecuteDeleteAsync();
+
+        await _context.VenueImages.ExecuteDeleteAsync();
+
+        await _context.Venues.ExecuteDeleteAsync();
+
+        await _context.Users
+            .Where(x => x.Role != UserRole.SuperAdmin)
+            .ExecuteDeleteAsync();
+    }
     private static VenueResponse ToResponse(Domain.Entities.Venue venue) => new()
     {
         Id = venue.Id,

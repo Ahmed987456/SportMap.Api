@@ -96,4 +96,19 @@ public class AdminController : ControllerBase
         await _adminService.SuspendVenueAsync(venueId);
         return Ok(ApiResponse<object>.Ok(null!, "Venue suspended successfully"));
     }
+
+    /// <summary>
+    /// أدمن فقط — يعمل ريسيت للداتا بيز
+    /// </summary>
+    [HttpPost("reset-demo-data")]
+    public async Task<IActionResult> ResetDemoData()
+    {
+        await _adminService.ResetDemoDataAsync();
+
+        return Ok(new
+        {
+            success = true,
+            message = "Demo data has been cleared."
+        });
+    }
 }
