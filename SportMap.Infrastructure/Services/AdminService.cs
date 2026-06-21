@@ -82,6 +82,18 @@ public class AdminService : IAdminService
 
     public async Task<AdminDashboardStatsResponse> GetDashboardStatsAsync()
     {
+        var startOfWeek = DateTime.UtcNow.Date.AddDays(-(int)DateTime.UtcNow.DayOfWeek);
+
+        var weeklyBookings = await _context.Bookings
+            .Where(x => x.CreatedAt >= startOfWeek)
+            .GroupBy(x => x.CreatedAt.DayOfWeek)
+            .Select(g => new Application.DTOs.Admin.WeeklyBookingDto
+            {
+                Day = g.Key.ToString(),
+                Bookings = g.Count()
+            })
+            .ToListAsync();
+
         return new AdminDashboardStatsResponse
         {
             TotalUsers = await _context.Users.CountAsync(),
@@ -97,14 +109,23 @@ public class AdminService : IAdminService
             TotalBookings = await _context.Bookings.CountAsync(),
 
             PendingVenues = await _context.Venues
-            .CountAsync(x => !x.IsApproved && !x.IsDeleted),
+                .CountAsync(x => !x.IsApproved && !x.IsDeleted),
 
             ApprovedVenues = await _context.Venues
-            .CountAsync(x => x.IsApproved && !x.IsDeleted),
+                .CountAsync(x => x.IsApproved && !x.IsDeleted),
 
             SuspendedVenues = await _context.Venues
-    .IgnoreQueryFilters()
-    .CountAsync(x => !x.IsApproved && x.IsDeleted)
+                .IgnoreQueryFilters()
+                .CountAsync(x => !x.IsApproved && x.IsDeleted),
+
+            WeeklyBookings = weeklyBookings,
+
+            UsersDistribution = new UsersDistributionDto
+            {
+                Players = await _context.Users.CountAsync(x => x.Role == UserRole.Player),
+                Owners = await _context.Users.CountAsync(x => x.Role == UserRole.VenueOwner),
+                Admins = await _context.Users.CountAsync(x => x.Role == UserRole.SuperAdmin)
+            }
         };
     }
     public async Task<List<VenueResponse>> GetApprovedVenuesAsync()

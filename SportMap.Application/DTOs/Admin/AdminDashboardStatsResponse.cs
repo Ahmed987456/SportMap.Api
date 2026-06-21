@@ -1,14 +1,21 @@
-﻿namespace SportMap.Application.DTOs.Admin;
+﻿using SportMap.Application.DTOs.Venues;
+
+namespace SportMap.Application.DTOs.Admin;
 
 public class AdminDashboardStatsResponse
 {
     public int TotalUsers { get; set; }
     public int TotalPlayers { get; set; }
     public int TotalOwners { get; set; }
+
     public int TotalVenues { get; set; }
+    public int ApprovedVenues { get; set; }
+    public int PendingVenues { get; set; }
+    public int SuspendedVenues { get; set; }
+
     public int TotalBookings { get; set; }
 
-    public int PendingVenues { get; set; }
-    public int ApprovedVenues { get; set; }
-    public int SuspendedVenues { get; set; }
+    public List<WeeklyBookingDto> WeeklyBookings { get; set; } = [];
+
+    public UsersDistributionDto UsersDistribution { get; set; } = new();
 }
