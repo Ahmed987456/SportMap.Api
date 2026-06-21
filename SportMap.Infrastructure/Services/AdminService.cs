@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using SportMap.Application.DTOs.Admin;
 using SportMap.Application.DTOs.Venues;
 using SportMap.Application.Interfaces;
+using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
 
 namespace SportMap.Infrastructure.Services;
@@ -76,6 +78,24 @@ public class AdminService : IAdminService
         venue.IsApproved = false;
         venue.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+    }
+
+    public async Task<AdminDashboardStatsResponse> GetDashboardStatsAsync()
+    {
+        return new AdminDashboardStatsResponse
+        {
+            TotalUsers = await _context.Users.CountAsync(),
+
+            TotalPlayers = await _context.Users
+                .CountAsync(x => x.Role == UserRole.Player),
+
+            TotalOwners = await _context.Users
+                .CountAsync(x => x.Role == UserRole.VenueOwner),
+
+            TotalVenues = await _context.Venues.CountAsync(),
+
+            TotalBookings = await _context.Bookings.CountAsync()
+        };
     }
 
     // نفس الـ ToResponse اللي في VenueService

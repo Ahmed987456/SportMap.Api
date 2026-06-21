@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SportMap.Application.DTOs.Admin;
 using SportMap.Application.DTOs.Common;
 using SportMap.Application.DTOs.Venues;
 using SportMap.Application.Interfaces;
@@ -39,6 +40,20 @@ public class AdminController : ControllerBase
     {
         var venues = await _adminService.GetAllVenuesAsync();
         return Ok(ApiResponse<List<VenueResponse>>.Ok(venues));
+    }
+
+    /// <summary>
+    /// 👑 Admin Dashboard Statistics
+    /// </summary>
+    [HttpGet("dashboard-stats")]
+    [Authorize(Roles = "SuperAdmin")]
+    public async Task<IActionResult> GetDashboardStats()
+    {
+        var stats = await _adminService.GetDashboardStatsAsync();
+
+        return Ok(
+            ApiResponse<AdminDashboardStatsResponse>.Ok(stats)
+        );
     }
 
     /// <summary>

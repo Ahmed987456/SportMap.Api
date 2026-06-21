@@ -1,4 +1,5 @@
-﻿using SportMap.Application.DTOs.Venues;
+﻿using SportMap.Application.DTOs.Admin;
+using SportMap.Application.DTOs.Venues;
 
 namespace SportMap.Application.Interfaces;
 
@@ -15,4 +16,6 @@ public interface IAdminService
 
     // يوقف ملعب
     Task SuspendVenueAsync(int venueId);
+
+    Task<AdminDashboardStatsResponse> GetDashboardStatsAsync();
 }
