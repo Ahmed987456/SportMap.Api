@@ -165,6 +165,8 @@ public class AdminService : IAdminService
 
         await _context.Venues.ExecuteDeleteAsync();
 
+        await _context.UserDevices.ExecuteDeleteAsync();
+
         await _context.Users
             .Where(x => x.Role != UserRole.SuperAdmin)
             .ExecuteDeleteAsync();
