@@ -30,7 +30,7 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
         if (existingUser != null)
-            throw new Exception("Email already exists");
+            throw new Exception("This email is already registered");
 
         var user = new User
         {
@@ -86,13 +86,13 @@ public class AuthService : IAuthService
         // نتحقق من الـ Invite Code
         var validCode = _config["OwnerInviteCode"];
         if (request.InviteCode != validCode)
-            throw new Exception("Invalid invite code");
+            throw new Exception("Invitation code is incorrect");
 
         var existingUser = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
         if (existingUser != null)
-            throw new Exception("Email already exists");
+            throw new Exception("This email is already registered");
 
         var user = new User
         {

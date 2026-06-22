@@ -25,7 +25,11 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register(RegisterRequest request)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var result = await _authService.RegisterAsync(request);
+
         return Ok(ApiResponse<AuthResponse>.Ok(result, "Registered successfully"));
     }
 
@@ -35,7 +39,11 @@ public class AuthController : ControllerBase
     [HttpPost("register-owner")]
     public async Task<IActionResult> RegisterOwner(RegisterOwnerRequest request)
     {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
         var result = await _authService.RegisterOwnerAsync(request);
+
         return Ok(ApiResponse<AuthResponse>.Ok(result, "Owner registered successfully"));
     }
 
