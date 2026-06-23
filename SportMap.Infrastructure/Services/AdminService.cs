@@ -23,10 +23,10 @@ public class AdminService : IAdminService
         // بنجيب الملاعب اللي IsApproved = false
         // وبنجيب معاها الـ Owner عشان نعرض اسمه
         return await _context.Venues
-            .Include(v => v.Owner)
-            .Where(v => !v.IsApproved)
-            .Select(v => ToResponse(v))
-            .ToListAsync();
+        .Include(v => v.Owner)
+        .Where(v => !v.IsApproved && !v.IsDeleted)
+        .Select(v => ToResponse(v))
+        .ToListAsync();
     }
 
     public async Task<List<VenueResponse>> GetAllVenuesAsync()
@@ -35,10 +35,11 @@ public class AdminService : IAdminService
         // عشان كده بنستخدم IgnoreQueryFilters
         // اللي بيتجاهل الـ Filter اللي عملناه في DbContext
         return await _context.Venues
-            .IgnoreQueryFilters()
-            .Include(v => v.Owner)
-            .Select(v => ToResponse(v))
-            .ToListAsync();
+       .IgnoreQueryFilters()
+       .Include(v => v.Owner)
+       .Where(v => v.IsApproved && !v.IsDeleted)
+       .Select(v => ToResponse(v))
+       .ToListAsync();
     }
 
     public async Task ApproveVenueAsync(int venueId)
