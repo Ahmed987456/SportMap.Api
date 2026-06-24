@@ -25,19 +25,24 @@ public class SlotService : ISlotService
         var dayOfWeek = targetDate.DayOfWeek;
 
         // نجيب الـ Slots المتاحة في نفس اليوم
-        var currentTime = TimeOnly.FromDateTime(DateTime.Now);
+        var now = DateTime.Now;
+        var currentTime = TimeOnly.FromDateTime(now);
 
         var slots = await _context.TimeSlots
             .Where(s =>
-                !s.IsDeleted&&
-                s.VenueId == venueId &&
-                s.IsAvailable &&
-                s.DayOfWeek == dayOfWeek &&
-                (
-                    targetDate > DateOnly.FromDateTime(DateTime.Today)
-                    ||
-                    s.StartTime > currentTime
-                ))
+    !s.IsDeleted &&
+    s.VenueId == venueId &&
+    s.IsAvailable &&
+    s.DayOfWeek == dayOfWeek &&
+    (
+        targetDate > DateOnly.FromDateTime(now)
+        ||
+        (
+            targetDate == DateOnly.FromDateTime(now)
+            &&
+            s.StartTime > currentTime
+        )
+    ))
             .ToListAsync();
 
         // نشيل اللي اتحجز في التاريخ ده
@@ -65,6 +70,14 @@ public class SlotService : ISlotService
 
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
+
+        var today = DateTime.Now;
+
+        if (request.DayOfWeek == today.DayOfWeek)
+        {
+            if (request.StartTime <= TimeOnly.FromDateTime(today))
+                throw new Exception("Cannot create slot in the past.");
+        }
 
         var overlap = await _context.TimeSlots.AnyAsync(s =>
             !s.IsDeleted &&
@@ -102,8 +115,23 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var nowTime = TimeOnly.FromDateTime(DateTime.Now);
+        var todayDay = DateTime.Now.DayOfWeek;
+
         return await _context.TimeSlots
-            .Where(s => s.VenueId == venueId)
+            .Where(s =>
+                s.VenueId == venueId &&
+                (
+                    // الأيام اللي بعد النهارده
+                    s.DayOfWeek != todayDay ||
+
+                    // النهارده لكن الميعاد لسه مجاش
+                    s.StartTime > nowTime
+                )
+            )
+            .OrderBy(s => s.DayOfWeek)
+            .ThenBy(s => s.StartTime)
             .Select(s => ToResponse(s))
             .ToListAsync();
     }

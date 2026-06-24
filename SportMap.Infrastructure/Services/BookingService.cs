@@ -20,6 +20,9 @@ public class BookingService : IBookingService
 
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
+        if (request.BookingDate < DateOnly.FromDateTime(DateTime.Now))
+            throw new Exception("Cannot book a past date.");
+
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == request.VenueId);
 
@@ -39,6 +42,16 @@ public class BookingService : IBookingService
 
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
+
+        var now = DateTime.Now;
+
+        // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
+        if (request.BookingDate == DateOnly.FromDateTime(now) &&
+            slot.StartTime <= TimeOnly.FromDateTime(now))
+        {
+            throw new Exception("This slot has already expired");
+        }
+
 
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
