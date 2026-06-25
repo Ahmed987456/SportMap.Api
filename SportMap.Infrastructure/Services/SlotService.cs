@@ -9,6 +9,7 @@ namespace SportMap.Infrastructure.Services;
 
 public class SlotService : ISlotService
 {
+
     private readonly AppDbContext _context;
 
     public SlotService(AppDbContext context)
@@ -62,7 +63,12 @@ public class SlotService : ISlotService
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
     {
-        throw new Exception("TEST TEST TEST");
+        var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+
+        var egyptNow =
+            TimeZoneInfo.ConvertTimeFromUtc(
+                DateTime.UtcNow,
+                egyptTimeZone);
 
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
@@ -75,9 +81,9 @@ public class SlotService : ISlotService
 
         var today = DateTime.Now;
 
-        if (request.DayOfWeek == today.DayOfWeek)
+        if (request.DayOfWeek == egyptNow.DayOfWeek)
         {
-            if (request.StartTime <= TimeOnly.FromDateTime(today))
+            if (request.StartTime <= TimeOnly.FromDateTime(egyptNow))
                 throw new Exception("Cannot create slot in the past.");
         }
 
