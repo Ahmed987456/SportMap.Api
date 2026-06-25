@@ -19,34 +19,35 @@ public class SlotService : ISlotService
 
     public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly? date)
     {
-        // لو مش بعت تاريخ نستخدم النهارده
-        var targetDate = date ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        await ExpireOldSlotsAsync();
 
-        // نجيب اليوم من التاريخ
+        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow,
+            "Egypt Standard Time");
+
+        var currentTime = TimeOnly.FromDateTime(egyptNow);
+
+        var targetDate = date ?? DateOnly.FromDateTime(egyptNow);
+
         var dayOfWeek = targetDate.DayOfWeek;
-
-        // نجيب الـ Slots المتاحة في نفس اليوم
-        var now = DateTime.Now;
-        var currentTime = TimeOnly.FromDateTime(now);
 
         var slots = await _context.TimeSlots
             .Where(s =>
-    !s.IsDeleted &&
-    s.VenueId == venueId &&
-    s.IsAvailable &&
-    s.DayOfWeek == dayOfWeek &&
-    (
-        targetDate > DateOnly.FromDateTime(now)
-        ||
-        (
-            targetDate == DateOnly.FromDateTime(now)
-            &&
-            s.StartTime > currentTime
-        )
-    ))
+                !s.IsDeleted &&
+                s.VenueId == venueId &&
+                s.IsAvailable &&
+                s.DayOfWeek == dayOfWeek &&
+                (
+                    targetDate > DateOnly.FromDateTime(egyptNow)
+                    ||
+                    (
+                        targetDate == DateOnly.FromDateTime(egyptNow)
+                        &&
+                        s.StartTime > currentTime
+                    )
+                ))
             .ToListAsync();
 
-        // نشيل اللي اتحجز في التاريخ ده
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
@@ -63,12 +64,9 @@ public class SlotService : ISlotService
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
     {
-        var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
-
-        var egyptNow =
-            TimeZoneInfo.ConvertTimeFromUtc(
-                DateTime.UtcNow,
-                egyptTimeZone);
+        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow,
+            "Egypt Standard Time");
 
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
@@ -78,8 +76,6 @@ public class SlotService : ISlotService
 
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
-
-        var today = DateTime.Now;
 
         if (request.DayOfWeek == egyptNow.DayOfWeek)
         {
@@ -114,6 +110,8 @@ public class SlotService : ISlotService
 
     public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
     {
+        await ExpireOldSlotsAsync();
+
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
 
@@ -123,26 +121,23 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        var today = DateOnly.FromDateTime(DateTime.Now);
-        var nowTime = TimeOnly.FromDateTime(DateTime.Now);
-        var todayDay = DateTime.Now.DayOfWeek;
+        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow,
+            "Egypt Standard Time");
+
+        var currentTime = TimeOnly.FromDateTime(egyptNow);
+        var todayDay = egyptNow.DayOfWeek;
 
         return await _context.TimeSlots
             .Where(s =>
-                s.VenueId == venueId &&
-                (
-                    // الأيام اللي بعد النهارده
-                    s.DayOfWeek != todayDay ||
-
-                    // النهارده لكن الميعاد لسه مجاش
-                    s.StartTime > nowTime
-                )
-            )
+    !s.IsDeleted &&
+    s.VenueId == venueId)
             .OrderBy(s => s.DayOfWeek)
             .ThenBy(s => s.StartTime)
             .Select(s => ToResponse(s))
             .ToListAsync();
     }
+
     public async Task DeleteAsync(int slotId, int ownerId)
     {
         var slot = await _context.TimeSlots
@@ -186,4 +181,31 @@ public class SlotService : ISlotService
         IsAvailable = slot.IsAvailable,
         VenueId = slot.VenueId
     };
+
+    private async Task ExpireOldSlotsAsync()
+    {
+        var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
+
+        var currentDay = now.DayOfWeek;
+        var currentTime = TimeOnly.FromDateTime(now);
+
+        var expiredSlots = await _context.TimeSlots
+            .Where(s =>
+                s.IsAvailable &&
+                s.DayOfWeek == currentDay &&
+                s.EndTime <= currentTime)
+            .ToListAsync();
+
+        if (expiredSlots.Any())
+        {
+            foreach (var slot in expiredSlots)
+            {
+                slot.IsAvailable = false;
+                slot.UpdatedAt = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
+        }
+    }
 }
