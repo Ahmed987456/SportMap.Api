@@ -62,6 +62,8 @@ public class SlotService : ISlotService
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
     {
+        throw new Exception("TEST TEST TEST");
+
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
 
