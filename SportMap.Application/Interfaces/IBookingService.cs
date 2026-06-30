@@ -18,4 +18,7 @@ public interface IBookingService
 
     // صاحب الملعب يوافق على الحجز
     Task ConfirmAsync(int bookingId, int ownerId);
+
+    Task SubmitPaymentAsync(int bookingId, int playerId, string paymentReference);
+    Task ConfirmPaymentAsync(int bookingId, int ownerId);
 }

@@ -12,4 +12,7 @@ public class VenueRequest
     public decimal PricePerHour { get; set; }
     public VenueSurface Surface { get; set; }
     public int Capacity { get; set; }
+
+    public int DepositPercentage { get; set; } = 50;
+
 }

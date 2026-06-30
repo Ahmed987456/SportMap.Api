@@ -18,6 +18,10 @@ public class VenueResponse
     public string OwnerName { get; set; } = string.Empty;
     public double? DistanceInKm { get; set; }
 
+    public int DepositPercentage { get; set; }
+    public string? OwnerVodafoneCash { get; set; }
+    public string? OwnerInstaPay { get; set; }
+
     // ✅ بدل string بقت Object فيها Id
     public string? PrimaryImageUrl { get; set; }
     public List<VenueImageResponse> Images { get; set; } = new();

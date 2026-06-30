@@ -109,6 +109,16 @@ public class AuthService : IAuthService
         return await GenerateAuthResponse(user);
     }
 
+    public async Task UpdatePaymentInfoAsync(int userId, UpdatePaymentInfoRequest request)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user == null) throw new Exception("User not found");
+
+        user.VodafoneCashNumber = request.VodafoneCashNumber;
+        user.InstaPayNumber = request.InstaPayNumber;
+        await _context.SaveChangesAsync();
+    }
+
     // ===== Private Helpers =====
 
     private async Task<AuthResponse> GenerateAuthResponse(User user)

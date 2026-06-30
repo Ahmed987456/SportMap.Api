@@ -14,6 +14,7 @@ public class Venue : BaseEntity
     public VenueSurface Surface { get; set; }
     public int Capacity { get; set; }
     public bool IsApproved { get; set; } = false;
+    public int DepositPercentage { get; set; } = 50; // افتراضي 50%
 
     // Foreign Key
     public int OwnerId { get; set; }

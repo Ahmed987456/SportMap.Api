@@ -9,6 +9,9 @@ public class Booking : BaseEntity
     public decimal TotalPrice { get; set; }
     public BookingStatus Status { get; set; } = BookingStatus.Pending;
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Unpaid;
+    public decimal DepositAmount { get; set; }
+    public string? PaymentReference { get; set; }
+    public DateTime? PaymentSubmittedAt { get; set; }
 
     // Foreign Keys
     public int PlayerId { get; set; }
@@ -19,6 +22,5 @@ public class Booking : BaseEntity
     public User Player { get; set; } = null!;
     public Venue Venue { get; set; } = null!;
     public TimeSlot TimeSlot { get; set; } = null!;
-    public Payment? Payment { get; set; }
     public Review? Review { get; set; }
 }

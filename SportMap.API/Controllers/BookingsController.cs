@@ -81,4 +81,28 @@ public class BookingsController : ControllerBase
         await _bookingService.ConfirmAsync(bookingId, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Booking confirmed successfully"));
     }
+
+    /// <summary>
+    /// ⚽ لاعب فقط — يبعت الرقم المرجعي بعد ما يحوّل العربون
+    /// </summary>
+    [HttpPost("{bookingId}/submit-payment")]
+    [Authorize(Roles = "Player")]
+    public async Task<IActionResult> SubmitPayment(int bookingId, [FromBody] SubmitPaymentRequest request)
+    {
+        var playerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _bookingService.SubmitPaymentAsync(bookingId, playerId, request.PaymentReference);
+        return Ok(ApiResponse<object>.Ok(null!, "Payment reference submitted, awaiting confirmation"));
+    }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يأكد إنه استلم التحويل
+    /// </summary>
+    [HttpPatch("{bookingId}/confirm-payment")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> ConfirmPayment(int bookingId)
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _bookingService.ConfirmPaymentAsync(bookingId, ownerId);
+        return Ok(ApiResponse<object>.Ok(null!, "Payment confirmed"));
+    }
 }

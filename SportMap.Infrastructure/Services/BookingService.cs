@@ -44,14 +44,12 @@ public class BookingService : IBookingService
             throw new Exception("Time slot is not available");
 
         var now = DateTime.Now;
-
         // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
         if (request.BookingDate == DateOnly.FromDateTime(now) &&
             slot.StartTime <= TimeOnly.FromDateTime(now))
         {
             throw new Exception("This slot has already expired");
         }
-
 
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
@@ -64,7 +62,9 @@ public class BookingService : IBookingService
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         var totalPrice = (decimal)hours * venue.PricePerHour;
 
-        // نجيب اسم اللاعب
+        // ✅ حساب العربون حسب نسبة الملعب
+        var depositAmount = totalPrice * venue.DepositPercentage / 100;
+
         var player = await _context.Users
             .FirstOrDefaultAsync(u => u.Id == playerId);
 
@@ -75,6 +75,7 @@ public class BookingService : IBookingService
             PlayerId = playerId,
             BookingDate = request.BookingDate,
             TotalPrice = totalPrice,
+            DepositAmount = depositAmount, // ✅ جديد
             Status = BookingStatus.Pending,
             PaymentStatus = PaymentStatus.Unpaid
         };
@@ -92,7 +93,6 @@ public class BookingService : IBookingService
 
         return await GetBookingResponseAsync(booking.Id);
     }
-
     public async Task<List<BookingResponse>> GetMyBookingsAsync(int playerId)
     {
         var bookings = await _context.Bookings
@@ -175,7 +175,75 @@ public class BookingService : IBookingService
              "/player/bookings"
         );
     }
-        
+
+    public async Task SubmitPaymentAsync(int bookingId, int playerId, string paymentReference)
+    {
+        if (string.IsNullOrWhiteSpace(paymentReference))
+            throw new Exception("Payment reference is required");
+
+        var booking = await _context.Bookings
+            .Include(b => b.Venue)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            throw new Exception("Booking not found");
+
+        if (booking.PlayerId != playerId)
+            throw new Exception("Unauthorized");
+
+        if (booking.PaymentStatus == PaymentStatus.Paid)
+            throw new Exception("This booking is already paid");
+
+        // أهم نقطة — نتأكد إن الرقم المرجعي ده مش مستخدم قبل كده في أي حجز تاني
+        var referenceUsed = await _context.Bookings.AnyAsync(b =>
+            b.PaymentReference == paymentReference &&
+            b.Id != bookingId);
+
+        if (referenceUsed)
+            throw new Exception("This payment reference has already been used for another booking");
+
+        booking.PaymentReference = paymentReference;
+        booking.PaymentStatus = PaymentStatus.PendingVerification;
+        booking.PaymentSubmittedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        // إشعار لصاحب الملعب يتأكد من الدفع
+        await _notificationService.SendToUserAsync(
+            booking.Venue.OwnerId,
+            "في انتظار تأكيد دفع 💰",
+            $"حجز جديد محتاج تأكيد دفع — الرقم المرجعي: {paymentReference}",
+            $"/owner/bookings/{booking.VenueId}"
+        );
+    }
+
+    public async Task ConfirmPaymentAsync(int bookingId, int ownerId)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Venue)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            throw new Exception("Booking not found");
+
+        if (booking.Venue.OwnerId != ownerId)
+            throw new Exception("Unauthorized");
+
+        if (booking.PaymentStatus != PaymentStatus.PendingVerification)
+            throw new Exception("No pending payment to confirm");
+
+        booking.PaymentStatus = PaymentStatus.Paid;
+        booking.Status = BookingStatus.Confirmed;
+        booking.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await _notificationService.SendToUserAsync(
+            booking.PlayerId,
+            "تم تأكيد دفعك وحجزك ✅",
+            $"تم تأكيد حجزك في {booking.Venue.Name} يوم {booking.BookingDate}",
+            "/player/bookings"
+        );
+    }
+
     private async Task<BookingResponse> GetBookingResponseAsync(int bookingId)
     {
         var booking = await _context.Bookings
@@ -187,6 +255,7 @@ public class BookingService : IBookingService
         return ToResponse(booking!);
     }
 
+
     private static BookingResponse ToResponse(Booking booking) => new()
     {
         Id = booking.Id,
@@ -196,6 +265,8 @@ public class BookingService : IBookingService
         EndTime = booking.TimeSlot.EndTime.ToString("HH:mm"),
         BookingDate = booking.BookingDate,
         TotalPrice = booking.TotalPrice,
+        DepositAmount = booking.DepositAmount,
+        PaymentReference = booking.PaymentReference,
         Status = booking.Status.ToString(),
         PaymentStatus = booking.PaymentStatus.ToString()
     };

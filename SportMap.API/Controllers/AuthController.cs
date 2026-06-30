@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SportMap.Application.DTOs.Auth;
 using SportMap.Application.DTOs.Common;
 using SportMap.Application.Interfaces;
+using System.Security.Claims;
 
 namespace SportMap.API.Controllers;
 
@@ -75,5 +77,17 @@ public class AuthController : ControllerBase
     {
         await _authService.LogoutAsync(refreshToken);
         return Ok(ApiResponse<object>.Ok(null!, "Logged out successfully"));
+    }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يحدّث بيانات الدفع بتاعته
+    /// </summary>
+    [HttpPut("payment-info")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> UpdatePaymentInfo(UpdatePaymentInfoRequest request)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _authService.UpdatePaymentInfoAsync(userId, request);
+        return Ok(ApiResponse<object>.Ok(null!, "Payment info updated"));
     }
 }

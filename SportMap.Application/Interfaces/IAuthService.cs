@@ -10,4 +10,6 @@ public interface IAuthService
     Task LogoutAsync(string refreshToken);
 
     Task<AuthResponse> RegisterOwnerAsync(RegisterOwnerRequest request);
+
+    Task UpdatePaymentInfoAsync(int userId, UpdatePaymentInfoRequest request);
 }

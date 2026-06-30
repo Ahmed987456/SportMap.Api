@@ -11,7 +11,6 @@ public class AppDbContext : DbContext
     public DbSet<Venue> Venues { get; set; }
     public DbSet<TimeSlot> TimeSlots { get; set; }
     public DbSet<Booking> Bookings { get; set; }
-    public DbSet<Payment> Payments { get; set; }
     public DbSet<Review> Reviews { get; set; }
     public DbSet<VenueImage> VenueImages { get; set; }
     public DbSet<Notification> Notifications { get; set; }
@@ -26,7 +25,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Venue>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<TimeSlot>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<Booking>().HasQueryFilter(x => !x.IsDeleted);
-        modelBuilder.Entity<Payment>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<Review>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<VenueImage>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<UserDevice>().HasQueryFilter(x => !x.IsDeleted);
@@ -71,10 +69,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Booking>()
             .Property(x => x.TotalPrice)
-            .HasPrecision(10, 2);
-
-        modelBuilder.Entity<Payment>()
-            .Property(x => x.Amount)
             .HasPrecision(10, 2);
     }
 }

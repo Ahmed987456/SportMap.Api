@@ -11,4 +11,6 @@ public class BookingResponse
     public decimal TotalPrice { get; set; }
     public string Status { get; set; } = string.Empty;
     public string PaymentStatus { get; set; } = string.Empty;
+    public decimal DepositAmount { get; set; }
+    public string? PaymentReference { get; set; }
 }
