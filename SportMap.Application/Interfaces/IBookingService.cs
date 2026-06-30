@@ -21,4 +21,6 @@ public interface IBookingService
 
     Task SubmitPaymentAsync(int bookingId, int playerId, string paymentReference);
     Task ConfirmPaymentAsync(int bookingId, int ownerId);
+
+    Task RejectPaymentAsync(int bookingId, int ownerId);
 }

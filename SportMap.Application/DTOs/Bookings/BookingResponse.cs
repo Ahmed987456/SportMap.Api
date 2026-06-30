@@ -3,6 +3,7 @@
 public class BookingResponse
 {
     public int Id { get; set; }
+    public int VenueId { get; set; }
     public string VenueName { get; set; } = string.Empty;
     public string PlayerName { get; set; } = string.Empty;
     public string StartTime { get; set; } = string.Empty;
@@ -13,4 +14,5 @@ public class BookingResponse
     public string PaymentStatus { get; set; } = string.Empty;
     public decimal DepositAmount { get; set; }
     public string? PaymentReference { get; set; }
+
 }

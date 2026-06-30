@@ -212,7 +212,7 @@ public class BookingService : IBookingService
             booking.Venue.OwnerId,
             "في انتظار تأكيد دفع 💰",
             $"حجز جديد محتاج تأكيد دفع — الرقم المرجعي: {paymentReference}",
-            $"/owner/bookings/{booking.VenueId}"
+            $"/owner/venues/{booking.VenueId}/bookings"
         );
     }
 
@@ -255,6 +255,36 @@ public class BookingService : IBookingService
         return ToResponse(booking!);
     }
 
+    public async Task RejectPaymentAsync(int bookingId, int ownerId)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Venue)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        if (booking == null)
+            throw new Exception("Booking not found");
+
+        if (booking.Venue.OwnerId != ownerId)
+            throw new Exception("Unauthorized");
+
+        if (booking.PaymentStatus != PaymentStatus.PendingVerification)
+            throw new Exception("No pending payment to reject");
+
+        booking.Status = BookingStatus.Cancelled;
+        booking.PaymentStatus = PaymentStatus.Unpaid;
+        booking.PaymentReference = null;
+        booking.PaymentSubmittedAt = null;
+        booking.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await _notificationService.SendToUserAsync(
+            booking.PlayerId,
+            "الرقم المرجعي غير صحيح ❌",
+            $"تم إلغاء حجزك في {booking.Venue.Name} لأن الرقم المرجعي غير صحيح. احجز من جديد وأرسل الرقم الصحيح",
+            "/player/bookings"
+        );
+    }
+
 
     private static BookingResponse ToResponse(Booking booking) => new()
     {
@@ -268,6 +298,7 @@ public class BookingService : IBookingService
         DepositAmount = booking.DepositAmount,
         PaymentReference = booking.PaymentReference,
         Status = booking.Status.ToString(),
-        PaymentStatus = booking.PaymentStatus.ToString()
+        PaymentStatus = booking.PaymentStatus.ToString(),
+        VenueId = booking.VenueId,
     };
 }

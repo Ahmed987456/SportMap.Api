@@ -105,4 +105,16 @@ public class BookingsController : ControllerBase
         await _bookingService.ConfirmPaymentAsync(bookingId, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Payment confirmed"));
     }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يرفض الرقم المرجعي ويلغي الحجز
+    /// </summary>
+    [HttpPatch("{bookingId}/reject-payment")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> RejectPayment(int bookingId)
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await _bookingService.RejectPaymentAsync(bookingId, ownerId);
+        return Ok(ApiResponse<object>.Ok(null!, "Payment rejected, booking cancelled"));
+    }
 }
