@@ -315,16 +315,19 @@ public class VenueService : IVenueService
         IsApproved = venue.IsApproved,
         IsDeleted = venue.IsDeleted,
         OwnerName = venue.Owner.Name,
+        DepositPercentage = venue.DepositPercentage,           // ✅ ضيف ده
+        OwnerVodafoneCash = venue.Owner.VodafoneCashNumber,     // ✅ وده
+        OwnerInstaPay = venue.Owner.InstaPayNumber,             // ✅ وده
         PrimaryImageUrl = venue.Images
-        .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+         .FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
         Images = venue.Images
-        .Where(i => !i.IsDeleted)
-        .Select(i => new VenueImageResponse
-        {
-            Id = i.Id,
-            ImageUrl = i.ImageUrl,
-            IsPrimary = i.IsPrimary
-        })
-        .ToList()
+         .Where(i => !i.IsDeleted)
+         .Select(i => new VenueImageResponse
+         {
+             Id = i.Id,
+             ImageUrl = i.ImageUrl,
+             IsPrimary = i.IsPrimary
+         })
+         .ToList()
     };
 }
