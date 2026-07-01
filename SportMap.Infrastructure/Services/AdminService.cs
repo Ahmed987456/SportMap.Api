@@ -79,6 +79,14 @@ public class AdminService : IAdminService
         venue.IsApproved = false;
         venue.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+
+        // ✅ إشعار لصاحب الملعب
+        await _notificationService.SendToUserAsync(
+            venue.OwnerId,
+            "تم إيقاف ملعبك ⚠️",
+            $"تم إيقاف ملعب {venue.Name} من قبل الإدارة. تواصل معنا لمزيد من المعلومات",
+            "/owner/venues"
+        );
     }
 
     public async Task<AdminDashboardStatsResponse> GetDashboardStatsAsync()
