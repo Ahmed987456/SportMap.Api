@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using SportMap.Application.Interfaces;
 using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
 
@@ -22,10 +23,13 @@ public class BookingCleanupService : BackgroundService
             using (var scope = _serviceProvider.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var notificationService = scope.ServiceProvider
+       .GetRequiredService<INotificationService>();
 
                 var cutoff = DateTime.UtcNow.AddMinutes(-30);
 
                 var expiredBookings = await context.Bookings
+                    .Include(b => b.Venue)
                     .Where(b =>
                         b.Status == BookingStatus.Pending &&
                         b.PaymentStatus == PaymentStatus.Unpaid &&
@@ -36,6 +40,14 @@ public class BookingCleanupService : BackgroundService
                 {
                     booking.Status = BookingStatus.Cancelled;
                     booking.UpdatedAt = DateTime.UtcNow;
+
+                    // ✅ ضيف إشعار للاعب
+                    await notificationService.SendToUserAsync(
+                        booking.PlayerId,
+                        "تم إلغاء حجزك تلقائياً ⏰",
+                        $"تم إلغاء حجزك في {booking.Venue.Name} لأنك لم تكمل الدفع في الوقت المحدد. يمكنك الحجز من جديد",
+                        "/player/bookings"
+                    );
                 }
 
                 if (expiredBookings.Count > 0)
