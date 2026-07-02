@@ -16,5 +16,4 @@ public class TimeSlot : BaseEntity
 
     // Navigation Properties
     public Venue Venue { get; set; } = null!;
-    public Booking? Booking { get; set; }
 }

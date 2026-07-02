@@ -45,10 +45,10 @@ public class AppDbContext : DbContext
 
         // One-to-One (Original - No migration needed)
         modelBuilder.Entity<Booking>()
-            .HasOne(b => b.TimeSlot)
-            .WithOne(t => t.Booking)
-            .HasForeignKey<Booking>(b => b.TimeSlotId)
-            .OnDelete(DeleteBehavior.Restrict);
+    .HasOne(b => b.TimeSlot)
+    .WithMany()   
+    .HasForeignKey(b => b.TimeSlotId)
+    .OnDelete(DeleteBehavior.Restrict);
 
         // Review Relationships
         modelBuilder.Entity<Review>()

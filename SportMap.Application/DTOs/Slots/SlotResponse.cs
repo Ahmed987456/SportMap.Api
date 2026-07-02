@@ -9,6 +9,7 @@ public class SlotResponse
     public string StartTime { get; set; } = null!;
     public string EndTime { get; set; } = null!;
     public bool IsAvailable { get; set; }
+
+    public bool IsExpired { get; set; }
     public int VenueId { get; set; }
-    public string Status { get; set; } = "متاح";  // ✅ جديد: متاح / محجوز / منتهي
 }

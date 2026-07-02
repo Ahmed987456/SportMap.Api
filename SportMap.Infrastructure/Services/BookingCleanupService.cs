@@ -26,31 +26,23 @@ public class BookingCleanupService : BackgroundService
                 var notificationService = scope.ServiceProvider
                     .GetRequiredService<INotificationService>();
 
-                var cutoffUtc = DateTime.UtcNow.AddMinutes(-30);
+                var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+                    DateTime.UtcNow, "Egypt Standard Time");
+
+                var cutoff = DateTime.UtcNow.AddMinutes(-30);
 
                 var expiredBookings = await context.Bookings
                     .Include(b => b.Venue)
                     .Where(b =>
                         b.Status == BookingStatus.Pending &&
                         b.PaymentStatus == PaymentStatus.Unpaid &&
-                        b.CreatedAt <= cutoffUtc)
+                        b.CreatedAt <= cutoff)
                     .ToListAsync(stoppingToken);
 
                 foreach (var booking in expiredBookings)
                 {
                     booking.Status = BookingStatus.Cancelled;
-                    booking.IsDeleted = true;  // ✅ Soft delete
                     booking.UpdatedAt = DateTime.UtcNow;
-
-                    // ✅ نرجع الـ Slot يتاح تاني
-                    var slot = await context.TimeSlots
-                        .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId, stoppingToken);
-
-                    if (slot != null)
-                    {
-                        slot.IsAvailable = true;
-                        slot.UpdatedAt = DateTime.UtcNow;
-                    }
 
                     try
                     {
