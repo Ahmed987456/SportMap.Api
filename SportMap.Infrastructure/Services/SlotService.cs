@@ -25,23 +25,24 @@ public class SlotService : ISlotService
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);
 
+        // ✅ اللاعب يشوف بس المواعيد اللي لسه مجاتش (مش منتهية)
         var slots = await _context.TimeSlots
             .Where(s =>
                 s.VenueId == venueId &&
                 s.Date == date &&
                 s.IsAvailable &&
                 !s.IsDeleted &&
-                // نشوف المواعيد اللي لسه مجاتش بس
-                (date > today || (date == today && s.EndTime > currentTime)))
+                // الميعاد لسه مجاش (الوقت الحالي أقل من بداية الميعاد)
+                (date > today || (date == today && s.StartTime > currentTime)))
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
-        // نشيل المواعيد المحجوزة (مش Cancelled بس)
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
                 b.BookingDate == date &&
-                b.Status != BookingStatus.Cancelled)
+                b.Status != BookingStatus.Cancelled &&
+                !b.IsDeleted)
             .Select(b => b.TimeSlotId)
             .ToListAsync();
 
@@ -62,14 +63,38 @@ public class SlotService : ISlotService
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);
 
-        // صاحب الملعب يشوف كل المواعيد من النهارده وبعدها
+        // ✅ صاحب الملعب يشوف كل المواعيد (حتى المنتهية)
         var slots = await _context.TimeSlots
             .Where(s => s.VenueId == venueId && !s.IsDeleted)
             .OrderBy(s => s.Date)
             .ThenBy(s => s.StartTime)
             .ToListAsync();
 
-        return slots.Select(ToResponse).ToList();
+        // نجيب الـ Bookings النشطة
+        var activeBookings = await _context.Bookings
+            .Where(b =>
+                b.VenueId == venueId &&
+                b.Status != BookingStatus.Cancelled &&
+                !b.IsDeleted)
+            .ToListAsync();
+
+        return slots.Select(s =>
+        {
+            var response = ToResponse(s);
+
+            // ✅ نحدد حالة الميعاد
+            var isBooked = activeBookings.Any(b => b.TimeSlotId == s.Id && b.BookingDate == s.Date);
+            var isExpired = s.Date < today || (s.Date == today && s.EndTime <= currentTime);
+
+            if (isBooked)
+                response.Status = "محجوز";
+            else if (isExpired)
+                response.Status = "منتهي";
+            else
+                response.Status = "متاح";
+
+            return response;
+        }).ToList();
     }
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
@@ -83,19 +108,15 @@ public class SlotService : ISlotService
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);
 
-        // التاريخ مش في الماضي
         if (request.Date < today)
             throw new Exception("لا يمكن إضافة مواعيد في الماضي");
 
-        // لو النهارده، الوقت لازم يكون في المستقبل
         if (request.Date == today && request.StartTime <= currentTime)
             throw new Exception("لا يمكن إضافة مواعيد في وقت مضى");
 
-        // الوقت صح - نسمح بـ cross-day (11 مساءً → 12 صباحاً)
         if (request.StartTime == request.EndTime)
             throw new Exception("وقت البداية يجب أن يكون مختلف عن وقت النهاية");
 
-        // مفيش Overlap
         var overlap = await _context.TimeSlots.AnyAsync(s =>
             s.VenueId == venueId &&
             s.Date == request.Date &&
@@ -156,6 +177,7 @@ public class SlotService : ISlotService
         StartTime = slot.StartTime.ToString("HH:mm"),
         EndTime = slot.EndTime.ToString("HH:mm"),
         IsAvailable = slot.IsAvailable,
-        VenueId = slot.VenueId
+        VenueId = slot.VenueId,
+        Status = "متاح"  // default
     };
 }
