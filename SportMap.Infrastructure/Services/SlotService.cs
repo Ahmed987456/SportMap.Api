@@ -58,7 +58,8 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+     DateTime.UtcNow, "Egypt Standard Time"));
 
         return await _context.TimeSlots
             .Where(s => s.VenueId == venueId && s.Date >= today)
@@ -79,7 +80,9 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+    DateTime.UtcNow, "Egypt Standard Time");
+        var today = DateOnly.FromDateTime(egyptNow);
 
         if (request.Date < today)
             throw new Exception("Cannot add slots in the past");
