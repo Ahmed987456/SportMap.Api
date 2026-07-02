@@ -20,38 +20,31 @@ public class BookingService : IBookingService
 
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
-        if (request.BookingDate < DateOnly.FromDateTime(DateTime.UtcNow))
+        var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow,
+            "Egypt Standard Time"
+        );
+
+        var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == request.VenueId);
+
+        if (venue == null) throw new Exception("Venue not found");
+        if (!venue.IsApproved) throw new Exception("Venue is not approved yet");
+
+        if (request.BookingDate < DateOnly.FromDateTime(now))
             throw new Exception("Cannot book a past date.");
 
-        var venue = await _context.Venues
-            .FirstOrDefaultAsync(v => v.Id == request.VenueId);
-
-        if (venue == null)
-            throw new Exception("Venue not found");
-
-        if (!venue.IsApproved)
-            throw new Exception("Venue is not approved yet");
-
         var slot = await _context.TimeSlots
-            .FirstOrDefaultAsync(s =>
-                s.Id == request.TimeSlotId &&
-                s.VenueId == request.VenueId);
+            .FirstOrDefaultAsync(s => s.Id == request.TimeSlotId && s.VenueId == request.VenueId);
 
-        if (slot == null)
-            throw new Exception("Time slot not found");
+        if (slot == null) throw new Exception("Time slot not found");
 
+        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime);
 
-        // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
+        if (slotEnd <= now)
+            throw new Exception("This slot has already expired");
 
-        var now = DateTime.UtcNow;
-
-        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime).ToUniversalTime();
-
-
-        if (!slot.IsAvailable || slotEnd <= DateTime.UtcNow)
-        {
+        if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
-        }
 
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
@@ -64,11 +57,9 @@ public class BookingService : IBookingService
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         var totalPrice = (decimal)hours * venue.PricePerHour;
 
-        // ✅ حساب العربون حسب نسبة الملعب
         var depositAmount = totalPrice * venue.DepositPercentage / 100;
 
-        var player = await _context.Users
-            .FirstOrDefaultAsync(u => u.Id == playerId);
+        var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
 
         var booking = new Booking
         {
@@ -77,7 +68,7 @@ public class BookingService : IBookingService
             PlayerId = playerId,
             BookingDate = request.BookingDate,
             TotalPrice = totalPrice,
-            DepositAmount = depositAmount, // ✅ جديد
+            DepositAmount = depositAmount,
             Status = BookingStatus.Pending,
             PaymentStatus = PaymentStatus.Unpaid
         };
@@ -85,11 +76,10 @@ public class BookingService : IBookingService
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
 
-        // إشعار لصاحب الملعب
         await _notificationService.SendToUserAsync(
             venue.OwnerId,
             "حجز جديد! 🎉",
-            $"{player?.Name ?? "لاعب"} حجز {venue.Name} يوم {request.BookingDate}",
+            $"{player?.Name ?? "لاعب"} حجز {venue.Name}",
             $"/owner/venues/{venue.Id}/bookings"
         );
 

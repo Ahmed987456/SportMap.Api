@@ -16,9 +16,17 @@ public class SlotService : ISlotService
         _context = context;
     }
 
+    private static DateTime NowEgypt()
+    {
+        return TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow,
+            "Egypt Standard Time"
+        );
+    }
+
     public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly date)
     {
-        var now = DateTime.UtcNow;
+        var now = NowEgypt();
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);
 
@@ -31,15 +39,6 @@ public class SlotService : ISlotService
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
-        foreach (var slot in slots)
-        {
-            var end = slot.Date.ToDateTime(slot.EndTime);
-
-            if (end <= now)
-                slot.IsAvailable = false;
-        }
-        await _context.SaveChangesAsync();
-
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
@@ -50,58 +49,47 @@ public class SlotService : ISlotService
 
         return slots
             .Where(s => !bookedSlotIds.Contains(s.Id))
-            .Select(s => ToResponse(s))
+            .Select(ToResponse)
             .ToList();
     }
 
     public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
     {
-        var venue = await _context.Venues
-            .FirstOrDefaultAsync(v => v.Id == venueId);
+        var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == venueId);
 
-        if (venue == null)
-            throw new Exception("Venue not found");
+        if (venue == null) throw new Exception("Venue not found");
+        if (venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
-        if (venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-     DateTime.UtcNow, "Egypt Standard Time"));
+        var today = DateOnly.FromDateTime(NowEgypt());
 
         return await _context.TimeSlots
             .Where(s => s.VenueId == venueId && s.Date >= today)
             .OrderBy(s => s.Date)
             .ThenBy(s => s.StartTime)
-            .Select(s => ToResponse(s))
+            .Select(ToResponse)
             .ToListAsync();
     }
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
     {
-        var venue = await _context.Venues
-            .FirstOrDefaultAsync(v => v.Id == venueId);
+        var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == venueId);
 
-        if (venue == null)
-            throw new Exception("Venue not found");
+        if (venue == null) throw new Exception("Venue not found");
+        if (venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
-        if (venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        var now = DateTime.UtcNow;
+        var now = NowEgypt();
         var today = DateOnly.FromDateTime(now);
 
         if (request.Date < today)
             throw new Exception("Cannot add slots in the past");
 
-        var slotStart = request.Date.ToDateTime(request.StartTime);
-
-        if (slotStart <= DateTime.UtcNow)
-        {
-            throw new Exception("Cannot create slot in the past");
-        }
-
         if (request.StartTime >= request.EndTime)
             throw new Exception("Start time must be before end time");
+
+        var slotStart = request.Date.ToDateTime(request.StartTime);
+
+        if (slotStart <= now)
+            throw new Exception("Cannot create slot in the past");
 
         var overlap = await _context.TimeSlots.AnyAsync(s =>
             s.VenueId == venueId &&
@@ -133,14 +121,12 @@ public class SlotService : ISlotService
             .Include(s => s.Venue)
             .FirstOrDefaultAsync(s => s.Id == slotId);
 
-        if (slot == null)
-            throw new Exception("Slot not found");
-
-        if (slot.Venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
+        if (slot == null) throw new Exception("Slot not found");
+        if (slot.Venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
         slot.IsDeleted = true;
         slot.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
     }
 
@@ -150,14 +136,12 @@ public class SlotService : ISlotService
             .Include(s => s.Venue)
             .FirstOrDefaultAsync(s => s.Id == slotId);
 
-        if (slot == null)
-            throw new Exception("Slot not found");
-
-        if (slot.Venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
+        if (slot == null) throw new Exception("Slot not found");
+        if (slot.Venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
         slot.IsAvailable = !slot.IsAvailable;
         slot.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
     }
 
