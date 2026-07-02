@@ -25,14 +25,14 @@ public class SlotService : ISlotService
         var today = DateOnly.FromDateTime(now);
         var currentTime = TimeOnly.FromDateTime(now);
 
-        // ✅ اللاعب يشوف بس المواعيد اللي لسه مجاتش (مش منتهية)
+        // ✅ اللاعب يشوف بس المواعيد اللي لسه مجاتش
         var slots = await _context.TimeSlots
             .Where(s =>
                 s.VenueId == venueId &&
                 s.Date == date &&
                 s.IsAvailable &&
                 !s.IsDeleted &&
-                // الميعاد لسه مجاش (الوقت الحالي أقل من بداية الميعاد)
+                // الميعاد لسه ما بدأش (الوقت الحالي أقل من بداية الميعاد)
                 (date > today || (date == today && s.StartTime > currentTime)))
             .OrderBy(s => s.StartTime)
             .ToListAsync();
@@ -70,7 +70,7 @@ public class SlotService : ISlotService
             .ThenBy(s => s.StartTime)
             .ToListAsync();
 
-        // نجيب الـ Bookings النشطة
+        // ✅ نجيب الـ Bookings النشطة لكل slot بشكل صحيح
         var activeBookings = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
@@ -83,8 +83,11 @@ public class SlotService : ISlotService
             var response = ToResponse(s);
 
             // ✅ نحدد حالة الميعاد
+            // نجيب الـ Booking النشط على نفس الـ Slot ونفس التاريخ
             var isBooked = activeBookings.Any(b => b.TimeSlotId == s.Id && b.BookingDate == s.Date);
-            var isExpired = s.Date < today || (s.Date == today && s.EndTime <= currentTime);
+
+            // ✅ الميعاد منتهي لو: التاريخ عدى، أو النهاردة ووقت البداية عدى
+            var isExpired = s.Date < today || (s.Date == today && s.StartTime <= currentTime);
 
             if (isBooked)
                 response.Status = "محجوز";
@@ -178,6 +181,6 @@ public class SlotService : ISlotService
         EndTime = slot.EndTime.ToString("HH:mm"),
         IsAvailable = slot.IsAvailable,
         VenueId = slot.VenueId,
-        Status = "متاح"  // default
+        Status = "متاح"
     };
 }

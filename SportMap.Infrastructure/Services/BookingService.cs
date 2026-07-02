@@ -61,6 +61,15 @@ public class BookingService : IBookingService
         if (alreadyBooked)
             throw new Exception("This slot is already booked for the selected date");
 
+        // ✅ في حالة One-to-One، لازم نتأكد إن الـ Slot مالوش Booking تاني (حتى لو cancelled)
+        // نستخدم AsNoTracking عشان نتجنب مشاكل التتبع
+        var existingBookingOnSlot = await _context.Bookings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.TimeSlotId == request.TimeSlotId && !b.IsDeleted);
+
+        if (existingBookingOnSlot != null && existingBookingOnSlot.Status != BookingStatus.Cancelled)
+            throw new Exception("This slot is already booked");
+
         // حساب السعر
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         if (hours < 0) hours += 24;
@@ -144,7 +153,7 @@ public class BookingService : IBookingService
 
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
-        booking.IsDeleted = true;  // ✅ Soft delete للـ Booking القديم
+        booking.IsDeleted = true;  // ✅ Soft delete
 
         // ✅ نرجع الـ Slot يتاح تاني
         var slot = await _context.TimeSlots.FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
