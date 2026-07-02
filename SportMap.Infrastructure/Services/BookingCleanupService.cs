@@ -18,13 +18,16 @@ public class BookingCleanupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            using (var scope = _serviceProvider.CreateScope())
+            try
             {
+                using var scope = _serviceProvider.CreateScope();
+
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var notificationService = scope.ServiceProvider
-       .GetRequiredService<INotificationService>();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
                 var cutoff = DateTime.UtcNow.AddMinutes(-30);
 
@@ -41,17 +44,20 @@ public class BookingCleanupService : BackgroundService
                     booking.Status = BookingStatus.Cancelled;
                     booking.UpdatedAt = DateTime.UtcNow;
 
-                    // ✅ ضيف إشعار للاعب
                     await notificationService.SendToUserAsync(
                         booking.PlayerId,
                         "تم إلغاء حجزك تلقائياً ⏰",
-                        $"تم إلغاء حجزك في {booking.Venue.Name} لأنك لم تكمل الدفع في الوقت المحدد. يمكنك الحجز من جديد",
+                        $"تم إلغاء حجزك في {booking.Venue.Name} بسبب عدم الدفع",
                         "/player/bookings"
                     );
                 }
 
-                if (expiredBookings.Count > 0)
+                if (expiredBookings.Any())
                     await context.SaveChangesAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("BookingCleanupService Error: " + ex.Message);
             }
 
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
