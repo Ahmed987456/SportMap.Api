@@ -57,7 +57,7 @@ public class BookingService : IBookingService
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         var totalPrice = (decimal)hours * venue.PricePerHour;
 
-        var depositAmount = totalPrice * venue.DepositPercentage / 100;
+        var depositAmount = Math.Round(totalPrice * venue.DepositPercentage / 100, 2);
 
         var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
 
@@ -123,6 +123,7 @@ public class BookingService : IBookingService
     public async Task CancelAsync(int bookingId, int playerId)
     {
         var booking = await _context.Bookings
+            .Include(b => b.TimeSlot)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
         if (booking == null)
@@ -136,6 +137,10 @@ public class BookingService : IBookingService
 
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
+
+        // ✅ مش بنعمل حاجة للـ Slot لأن الـ Query بتاعة الـ Slots
+        // بتشيل المواعيد المحجوزة تلقائياً لما Status = Cancelled
+
         await _context.SaveChangesAsync();
     }
 

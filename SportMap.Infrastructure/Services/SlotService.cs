@@ -16,13 +16,8 @@ public class SlotService : ISlotService
         _context = context;
     }
 
-    private static DateTime NowEgypt()
-    {
-        return TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow,
-            "Egypt Standard Time"
-        );
-    }
+    private static DateTime NowEgypt() =>
+        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Egypt Standard Time");
 
     public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly date)
     {
@@ -35,10 +30,12 @@ public class SlotService : ISlotService
                 s.VenueId == venueId &&
                 s.Date == date &&
                 s.IsAvailable &&
-                (date > today || (date == today && s.StartTime > currentTime)))
+                // ✅ نشوف المواعيد اللي لسه مجاتش بس
+                (date > today || (date == today && s.EndTime > currentTime)))
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
+        // ✅ نشيل المواعيد المحجوزة
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
@@ -62,6 +59,7 @@ public class SlotService : ISlotService
 
         var today = DateOnly.FromDateTime(NowEgypt());
 
+        // ✅ صاحب الملعب يشوف كل المواعيد من النهارده وبعدها
         return await _context.TimeSlots
             .Where(s => s.VenueId == venueId && s.Date >= today)
             .OrderBy(s => s.Date)
@@ -80,25 +78,37 @@ public class SlotService : ISlotService
         var now = NowEgypt();
         var today = DateOnly.FromDateTime(now);
 
+        // ✅ التاريخ مش في الماضي
         if (request.Date < today)
-            throw new Exception("Cannot add slots in the past");
+            throw new Exception("لا يمكن إضافة مواعيد في الماضي");
 
+        // ✅ الوقت صح
         if (request.StartTime >= request.EndTime)
-            throw new Exception("Start time must be before end time");
+        {
+            // ✅ حل مشكلة 11 مساء → 12 صباح (اليوم التالي)
+            // لو EndTime أصغر من StartTime معناه الميعاد بيعدي منتصف الليل
+            // مش بنسمح بيه عشان يسبب تعقيد
+            throw new Exception("وقت البداية يجب أن يكون قبل وقت النهاية في نفس اليوم");
+        }
 
-        var slotStart = request.Date.ToDateTime(request.StartTime);
+        // ✅ الميعاد مش في الماضي (بالتوقيت المصري)
+        if (request.Date == today)
+        {
+            var currentTime = TimeOnly.FromDateTime(now);
+            if (request.EndTime <= currentTime)
+                throw new Exception("هذا الميعاد انتهى بالفعل");
+        }
 
-        if (slotStart <= now)
-            throw new Exception("Cannot create slot in the past");
-
+        // ✅ مفيش Overlap
         var overlap = await _context.TimeSlots.AnyAsync(s =>
             s.VenueId == venueId &&
             s.Date == request.Date &&
+            !s.IsDeleted &&
             s.StartTime < request.EndTime &&
             s.EndTime > request.StartTime);
 
         if (overlap)
-            throw new Exception("This time slot overlaps with an existing slot");
+            throw new Exception("هذا الميعاد يتعارض مع ميعاد موجود");
 
         var slot = new TimeSlot
         {
@@ -126,7 +136,6 @@ public class SlotService : ISlotService
 
         slot.IsDeleted = true;
         slot.UpdatedAt = DateTime.UtcNow;
-
         await _context.SaveChangesAsync();
     }
 
@@ -141,7 +150,6 @@ public class SlotService : ISlotService
 
         slot.IsAvailable = !slot.IsAvailable;
         slot.UpdatedAt = DateTime.UtcNow;
-
         await _context.SaveChangesAsync();
     }
 

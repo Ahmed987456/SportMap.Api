@@ -18,16 +18,16 @@ public class BookingCleanupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-
         while (!stoppingToken.IsCancellationRequested)
         {
-            try
+            using (var scope = _serviceProvider.CreateScope())
             {
-                using var scope = _serviceProvider.CreateScope();
-
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                var notificationService = scope.ServiceProvider
+                    .GetRequiredService<INotificationService>();
+
+                var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+                    DateTime.UtcNow, "Egypt Standard Time");
 
                 var cutoff = DateTime.UtcNow.AddMinutes(-30);
 
@@ -44,20 +44,20 @@ public class BookingCleanupService : BackgroundService
                     booking.Status = BookingStatus.Cancelled;
                     booking.UpdatedAt = DateTime.UtcNow;
 
-                    await notificationService.SendToUserAsync(
-                        booking.PlayerId,
-                        "تم إلغاء حجزك تلقائياً ⏰",
-                        $"تم إلغاء حجزك في {booking.Venue.Name} بسبب عدم الدفع",
-                        "/player/bookings"
-                    );
+                    try
+                    {
+                        await notificationService.SendToUserAsync(
+                            booking.PlayerId,
+                            "تم إلغاء حجزك تلقائياً ⏰",
+                            $"تم إلغاء حجزك في {booking.Venue.Name} لأنك لم تكمل الدفع في الوقت المحدد",
+                            "/player/bookings"
+                        );
+                    }
+                    catch { }
                 }
 
-                if (expiredBookings.Any())
+                if (expiredBookings.Count > 0)
                     await context.SaveChangesAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("BookingCleanupService Error: " + ex.Message);
             }
 
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
