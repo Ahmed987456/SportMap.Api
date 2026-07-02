@@ -162,12 +162,11 @@ public class BookingService : IBookingService
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
 
-        // ✅ مش بنعمل حاجة للـ Slot لأن الـ Query بتاعة الـ Slots
-        // بتشيل المواعيد المحجوزة تلقائياً لما Status = Cancelled
+        // 🔥 أهم سطر (ده اللي كان ناقص عندك)
+        booking.TimeSlot.IsAvailable = true;
 
         await _context.SaveChangesAsync();
     }
-
     public async Task ConfirmAsync(int bookingId, int ownerId)
     {
         var booking = await _context.Bookings
