@@ -10,6 +10,7 @@ public class SlotResponse
     public string EndTime { get; set; } = null!;
     public bool IsAvailable { get; set; }
 
+    public bool IsBooked { get; set; }
     public bool IsExpired { get; set; }
     public int VenueId { get; set; }
 }

@@ -66,7 +66,17 @@ public class SlotService : ISlotService
             .ThenBy(s => s.StartTime)
             .ToListAsync();   // ✅ ننفذ الكويري الأول
 
-        return slots.Select(ToResponse).ToList();   // ✅ بعدين نحول في الذاكرة
+        var bookedSlotIds = await _context.Bookings
+    .Where(b => b.Status != BookingStatus.Cancelled)
+    .Select(b => b.TimeSlotId)
+    .ToListAsync();
+
+        return slots.Select(s =>
+        {
+            var res = ToResponse(s);
+            res.IsBooked = bookedSlotIds.Contains(s.Id);
+            return res;
+        }).ToList();
     }
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
@@ -164,7 +174,8 @@ public class SlotService : ISlotService
             EndTime = slot.EndTime.ToString("HH:mm"),
             IsAvailable = slot.IsAvailable,
             IsExpired = isExpired,   // ✅ جديد
-            VenueId = slot.VenueId
+            VenueId = slot.VenueId,
+            IsBooked = false
         };
     }
 }
