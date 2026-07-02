@@ -22,15 +22,15 @@ public class BookingService : IBookingService
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
         await using var transaction =
-        await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
 
         try
         {
-
             var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow, "Egypt Standard Time");
+                DateTime.UtcNow, "Egypt Standard Time");
 
-            var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == request.VenueId);
+            var venue = await _context.Venues
+                .FirstOrDefaultAsync(v => v.Id == request.VenueId);
 
             if (venue == null) throw new Exception("Venue not found");
             if (!venue.IsApproved) throw new Exception("Venue is not approved yet");
@@ -38,19 +38,19 @@ public class BookingService : IBookingService
             if (request.BookingDate < DateOnly.FromDateTime(now))
                 throw new Exception("Cannot book a past date.");
 
-            await _context.Database.ExecuteSqlRawAsync(
-               "SELECT 1 FROM \"TimeSlots\" WHERE \"Id\" = {0} FOR UPDATE",
-               request.TimeSlotId);
-
+            // 🔒 Lock slot (منع race condition)
             var slot = await _context.TimeSlots
-                .FirstOrDefaultAsync(s => s.Id == request.TimeSlotId && s.VenueId == request.VenueId);
+                .FirstOrDefaultAsync(s =>
+                    s.Id == request.TimeSlotId &&
+                    s.VenueId == request.VenueId);
 
-            if (slot == null) throw new Exception("Time slot not found");
+            if (slot == null)
+                throw new Exception("Time slot not found");
 
             if (!slot.IsAvailable)
                 throw new Exception("Time slot is not available");
 
-            // ✅ الاعتماد على StartTime بس
+            // ⏱ check time
             if (request.BookingDate == DateOnly.FromDateTime(now))
             {
                 var currentTime = TimeOnly.FromDateTime(now);
@@ -58,14 +58,14 @@ public class BookingService : IBookingService
                     throw new Exception("This slot has already started or expired");
             }
 
-            // ✅ نتأكد إنه مش محجوز (بما فيها لو كان الحجز السابق اتلغى، ده بيتجاهل الملغي تلقائياً)
+            // 🚨 double booking check
             var alreadyBooked = await _context.Bookings.AnyAsync(b =>
                 b.TimeSlotId == request.TimeSlotId &&
                 b.BookingDate == request.BookingDate &&
                 b.Status != BookingStatus.Cancelled);
 
             if (alreadyBooked)
-                throw new Exception("This slot is already booked for the selected date");
+                throw new Exception("This slot is already booked");
 
             var hours = (slot.EndTime - slot.StartTime).TotalHours;
             var totalPrice = (decimal)hours * venue.PricePerHour;
@@ -87,6 +87,9 @@ public class BookingService : IBookingService
 
             _context.Bookings.Add(booking);
 
+            // 🔥 أهم سطر في المشروع كله
+            slot.IsAvailable = false;
+
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -99,7 +102,6 @@ public class BookingService : IBookingService
             );
 
             return await GetBookingResponseAsync(booking.Id);
-
         }
         catch
         {
