@@ -18,11 +18,9 @@ public class SlotService : ISlotService
 
     public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly date)
     {
-        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow, "Egypt Standard Time");
-
-        var currentTime = TimeOnly.FromDateTime(egyptNow);
-        var today = DateOnly.FromDateTime(egyptNow);
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now);
+        var currentTime = TimeOnly.FromDateTime(now);
 
         var slots = await _context.TimeSlots
             .Where(s =>
@@ -80,12 +78,18 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-    DateTime.UtcNow, "Egypt Standard Time");
-        var today = DateOnly.FromDateTime(egyptNow);
+        var now = DateTime.UtcNow;
+        var today = DateOnly.FromDateTime(now);
 
         if (request.Date < today)
             throw new Exception("Cannot add slots in the past");
+
+        var slotStart = request.Date.ToDateTime(request.StartTime);
+
+        if (slotStart <= DateTime.UtcNow)
+        {
+            throw new Exception("Cannot create slot in the past");
+        }
 
         if (request.StartTime >= request.EndTime)
             throw new Exception("Start time must be before end time");

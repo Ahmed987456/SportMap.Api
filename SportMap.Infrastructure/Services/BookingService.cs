@@ -40,9 +40,6 @@ public class BookingService : IBookingService
         if (slot == null)
             throw new Exception("Time slot not found");
 
-        if (!slot.IsAvailable)
-            throw new Exception("Time slot is not available");
-
 
         // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
 
@@ -50,9 +47,10 @@ public class BookingService : IBookingService
 
         var slotEnd = request.BookingDate.ToDateTime(slot.EndTime).ToUniversalTime();
 
-        if (slotEnd <= now)
+
+        if (!slot.IsAvailable || slotEnd <= DateTime.UtcNow)
         {
-            throw new Exception("This slot has already expired");
+            throw new Exception("Time slot is not available");
         }
 
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
