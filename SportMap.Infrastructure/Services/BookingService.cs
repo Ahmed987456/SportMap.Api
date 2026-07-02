@@ -20,7 +20,7 @@ public class BookingService : IBookingService
 
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
-        if (request.BookingDate < DateOnly.FromDateTime(DateTime.Now))
+        if (request.BookingDate < DateOnly.FromDateTime(DateTime.UtcNow))
             throw new Exception("Cannot book a past date.");
 
         var venue = await _context.Venues
@@ -43,7 +43,8 @@ public class BookingService : IBookingService
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
 
-        var now = DateTime.UtcNow;
+        var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
         // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
 
         var slotStart = request.BookingDate.ToDateTime(slot.StartTime);
