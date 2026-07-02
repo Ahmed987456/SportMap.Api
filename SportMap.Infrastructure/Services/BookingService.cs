@@ -181,6 +181,13 @@ public class BookingService : IBookingService
         if (string.IsNullOrWhiteSpace(paymentReference))
             throw new Exception("Payment reference is required");
 
+        // ✅ تحويل الأرقام العربية للإنجليزية
+        var normalized = NormalizeArabicNumbers(paymentReference.Trim());
+
+        // ✅ تأكد إنها 4 أرقام بس
+        if (!System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^\d{4}$"))
+            throw new Exception("يجب إدخال آخر 4 أرقام فقط من رقم العملية");
+
         var booking = await _context.Bookings
             .Include(b => b.Venue)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
@@ -194,24 +201,23 @@ public class BookingService : IBookingService
         if (booking.PaymentStatus == PaymentStatus.Paid)
             throw new Exception("This booking is already paid");
 
-        // أهم نقطة — نتأكد إن الرقم المرجعي ده مش مستخدم قبل كده في أي حجز تاني
+        // ✅ تأكد إن الرقم مش مستخدم قبل كده
         var referenceUsed = await _context.Bookings.AnyAsync(b =>
-            b.PaymentReference == paymentReference &&
+            b.PaymentReference == normalized &&
             b.Id != bookingId);
 
         if (referenceUsed)
-            throw new Exception("This payment reference has already been used for another booking");
+            throw new Exception("هذا الرقم المرجعي تم استخدامه من قبل");
 
-        booking.PaymentReference = paymentReference;
+        booking.PaymentReference = normalized;
         booking.PaymentStatus = PaymentStatus.PendingVerification;
         booking.PaymentSubmittedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        // إشعار لصاحب الملعب يتأكد من الدفع
         await _notificationService.SendToUserAsync(
             booking.Venue.OwnerId,
             "في انتظار تأكيد دفع 💰",
-            $"حجز جديد محتاج تأكيد دفع — الرقم المرجعي: {paymentReference}",
+            $"حجز جديد محتاج تأكيد دفع — آخر 4 أرقام: {normalized}",
             $"/owner/venues/{booking.VenueId}/bookings"
         );
     }
@@ -301,4 +307,14 @@ public class BookingService : IBookingService
         PaymentStatus = booking.PaymentStatus.ToString(),
         VenueId = booking.VenueId,
     };
+
+    // ✅ تحويل الأرقام العربية للإنجليزية
+    private static string NormalizeArabicNumbers(string input)
+    {
+        return input
+            .Replace('٠', '0').Replace('١', '1').Replace('٢', '2')
+            .Replace('٣', '3').Replace('٤', '4').Replace('٥', '5')
+            .Replace('٦', '6').Replace('٧', '7').Replace('٨', '8')
+            .Replace('٩', '9');
+    }
 }
