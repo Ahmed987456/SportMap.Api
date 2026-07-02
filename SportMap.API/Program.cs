@@ -115,13 +115,10 @@ using (var scope = app.Services.CreateScope())
 
     if (app.Environment.IsProduction())
         db.Database.Migrate();
-
-    await DataSeeder.SeedAsync(db);
 }
-
 //if (app.Environment.IsDevelopment())
 //{
-    app.UseSwagger();
+app.UseSwagger();
     app.UseSwaggerUI();
 //}
 

@@ -44,10 +44,10 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Booking>()
-            .HasOne(b => b.TimeSlot)
-            .WithMany(t => t.Bookings)
-            .HasForeignKey(b => b.TimeSlotId)
-            .OnDelete(DeleteBehavior.Restrict);
+    .HasOne(b => b.TimeSlot)
+    .WithOne(t => t.Booking)
+    .HasForeignKey<Booking>(b => b.TimeSlotId)
+    .OnDelete(DeleteBehavior.Restrict);
 
         // Review Relationships
         modelBuilder.Entity<Review>()

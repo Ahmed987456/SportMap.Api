@@ -9,7 +9,6 @@ namespace SportMap.Infrastructure.Services;
 
 public class SlotService : ISlotService
 {
-
     private readonly AppDbContext _context;
 
     public SlotService(AppDbContext context)
@@ -17,41 +16,27 @@ public class SlotService : ISlotService
         _context = context;
     }
 
-    public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly? date)
+    public async Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly date)
     {
-        await ExpireOldSlotsAsync();
-
         var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow,
-            "Egypt Standard Time");
+            DateTime.UtcNow, "Egypt Standard Time");
 
         var currentTime = TimeOnly.FromDateTime(egyptNow);
-
-        var targetDate = date ?? DateOnly.FromDateTime(egyptNow);
-
-        var dayOfWeek = targetDate.DayOfWeek;
+        var today = DateOnly.FromDateTime(egyptNow);
 
         var slots = await _context.TimeSlots
             .Where(s =>
-                !s.IsDeleted &&
                 s.VenueId == venueId &&
+                s.Date == date &&
                 s.IsAvailable &&
-                s.DayOfWeek == dayOfWeek &&
-                (
-                    targetDate > DateOnly.FromDateTime(egyptNow)
-                    ||
-                    (
-                        targetDate == DateOnly.FromDateTime(egyptNow)
-                        &&
-                        s.StartTime > currentTime
-                    )
-                ))
+                (date > today || (date == today && s.StartTime > currentTime)))
+            .OrderBy(s => s.StartTime)
             .ToListAsync();
 
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
-                b.BookingDate == targetDate &&
+                b.BookingDate == date &&
                 b.Status != BookingStatus.Cancelled)
             .Select(b => b.TimeSlotId)
             .ToListAsync();
@@ -62,12 +47,8 @@ public class SlotService : ISlotService
             .ToList();
     }
 
-    public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
+    public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
     {
-        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow,
-            "Egypt Standard Time");
-
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
 
@@ -77,28 +58,50 @@ public class SlotService : ISlotService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        if (request.DayOfWeek == egyptNow.DayOfWeek)
-        {
-            if (request.StartTime <= TimeOnly.FromDateTime(egyptNow))
-                throw new Exception("Cannot create slot in the past.");
-        }
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        return await _context.TimeSlots
+            .Where(s => s.VenueId == venueId && s.Date >= today)
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.StartTime)
+            .Select(s => ToResponse(s))
+            .ToListAsync();
+    }
+
+    public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
+    {
+        var venue = await _context.Venues
+            .FirstOrDefaultAsync(v => v.Id == venueId);
+
+        if (venue == null)
+            throw new Exception("Venue not found");
+
+        if (venue.OwnerId != ownerId)
+            throw new Exception("Unauthorized");
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        if (request.Date < today)
+            throw new Exception("Cannot add slots in the past");
+
+        if (request.StartTime >= request.EndTime)
+            throw new Exception("Start time must be before end time");
 
         var overlap = await _context.TimeSlots.AnyAsync(s =>
-            !s.IsDeleted &&
             s.VenueId == venueId &&
-            s.DayOfWeek == request.DayOfWeek &&
+            s.Date == request.Date &&
             s.StartTime < request.EndTime &&
             s.EndTime > request.StartTime);
 
         if (overlap)
-            throw new Exception("Time slot overlaps with an existing slot");
+            throw new Exception("This time slot overlaps with an existing slot");
 
         var slot = new TimeSlot
         {
             VenueId = venueId,
+            Date = request.Date,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
-            DayOfWeek = request.DayOfWeek,
             IsAvailable = true
         };
 
@@ -106,36 +109,6 @@ public class SlotService : ISlotService
         await _context.SaveChangesAsync();
 
         return ToResponse(slot);
-    }
-
-    public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
-    {
-        await ExpireOldSlotsAsync();
-
-        var venue = await _context.Venues
-            .FirstOrDefaultAsync(v => v.Id == venueId);
-
-        if (venue == null)
-            throw new Exception("Venue not found");
-
-        if (venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow,
-            "Egypt Standard Time");
-
-        var currentTime = TimeOnly.FromDateTime(egyptNow);
-        var todayDay = egyptNow.DayOfWeek;
-
-        return await _context.TimeSlots
-            .Where(s =>
-    !s.IsDeleted &&
-    s.VenueId == venueId)
-            .OrderBy(s => s.DayOfWeek)
-            .ThenBy(s => s.StartTime)
-            .Select(s => ToResponse(s))
-            .ToListAsync();
     }
 
     public async Task DeleteAsync(int slotId, int ownerId)
@@ -175,37 +148,10 @@ public class SlotService : ISlotService
     private static SlotResponse ToResponse(TimeSlot slot) => new()
     {
         Id = slot.Id,
+        Date = slot.Date,
         StartTime = slot.StartTime.ToString("HH:mm"),
         EndTime = slot.EndTime.ToString("HH:mm"),
-        DayOfWeek = slot.DayOfWeek.ToString(),
         IsAvailable = slot.IsAvailable,
         VenueId = slot.VenueId
     };
-
-    private async Task ExpireOldSlotsAsync()
-    {
-        var egyptTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Cairo");
-        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, egyptTimeZone);
-
-        var currentDay = now.DayOfWeek;
-        var currentTime = TimeOnly.FromDateTime(now);
-
-        var expiredSlots = await _context.TimeSlots
-            .Where(s =>
-                s.IsAvailable &&
-                s.DayOfWeek == currentDay &&
-                s.EndTime <= currentTime)
-            .ToListAsync();
-
-        if (expiredSlots.Any())
-        {
-            foreach (var slot in expiredSlots)
-            {
-                slot.IsAvailable = false;
-                slot.UpdatedAt = DateTime.UtcNow;
-            }
-
-            await _context.SaveChangesAsync();
-        }
-    }
 }

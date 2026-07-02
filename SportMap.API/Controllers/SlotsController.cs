@@ -7,9 +7,6 @@ using System.Security.Claims;
 
 namespace SportMap.API.Controllers;
 
-/// <summary>
-/// ⏰ إدارة المواعيد المتاحة للملاعب
-/// </summary>
 [ApiController]
 [Route("api/venues/{venueId}/slots")]
 public class SlotsController : ControllerBase
@@ -22,18 +19,29 @@ public class SlotsController : ControllerBase
     }
 
     /// <summary>
-    /// 🔓 متاح للكل — يشوف المواعيد المتاحة في ملعب في تاريخ معين
-    /// لو مبعتش تاريخ هيرجع مواعيد النهارده
+    /// 🔓 متاح للكل — يشوف المواعيد المتاحة في تاريخ معين
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetSlots(int venueId, [FromQuery] DateOnly? date)
+    public async Task<IActionResult> GetSlots(int venueId, [FromQuery] DateOnly date)
     {
         var slots = await _slotService.GetVenueSlotsAsync(venueId, date);
         return Ok(ApiResponse<List<SlotResponse>>.Ok(slots));
     }
 
     /// <summary>
-    /// 🏟️ صاحب ملعب فقط — يضيف ميعاد جديد لملعبه بس
+    /// 🏟️ صاحب ملعب فقط — يشوف كل المواعيد
+    /// </summary>
+    [HttpGet("all")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> GetAllSlots(int venueId)
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var slots = await _slotService.GetAllVenueSlotsAsync(venueId, ownerId);
+        return Ok(ApiResponse<List<SlotResponse>>.Ok(slots));
+    }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يضيف ميعاد جديد
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "VenueOwner")]
@@ -45,7 +53,7 @@ public class SlotsController : ControllerBase
     }
 
     /// <summary>
-    /// 🏟️ صاحب ملعب فقط — يحذف ميعاد من ملعبه بس
+    /// 🏟️ صاحب ملعب فقط — يحذف ميعاد
     /// </summary>
     [HttpDelete("{slotId}")]
     [Authorize(Roles = "VenueOwner")]
@@ -57,7 +65,7 @@ public class SlotsController : ControllerBase
     }
 
     /// <summary>
-    /// 🏟️ صاحب ملعب فقط — يوقف أو يفتح ميعاد في ملعبه بس
+    /// 🏟️ صاحب ملعب فقط — يوقف أو يفتح ميعاد
     /// </summary>
     [HttpPatch("{slotId}/toggle")]
     [Authorize(Roles = "VenueOwner")]
@@ -66,17 +74,5 @@ public class SlotsController : ControllerBase
         var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         await _slotService.ToggleAvailabilityAsync(slotId, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Slot availability updated"));
-    }
-
-    /// <summary>
-    /// 🏟️ صاحب ملعب فقط — يشوف كل المواعيد الثابتة في ملعبه
-    /// </summary>
-    [HttpGet("all")]
-    [Authorize(Roles = "VenueOwner")]
-    public async Task<IActionResult> GetAllSlots(int venueId)
-    {
-        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var slots = await _slotService.GetAllVenueSlotsAsync(venueId, ownerId);
-        return Ok(ApiResponse<List<SlotResponse>>.Ok(slots));
     }
 }

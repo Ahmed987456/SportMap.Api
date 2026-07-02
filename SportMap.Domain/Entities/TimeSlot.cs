@@ -4,9 +4,9 @@ namespace SportMap.Domain.Entities;
 
 public class TimeSlot : BaseEntity
 {
+    public DateOnly Date { get; set; }
     public TimeOnly StartTime { get; set; }
     public TimeOnly EndTime { get; set; }
-    public DayOfWeek DayOfWeek { get; set; }
     public bool IsAvailable { get; set; } = true;
 
     // Foreign Key
@@ -14,5 +14,5 @@ public class TimeSlot : BaseEntity
 
     // Navigation Properties
     public Venue Venue { get; set; } = null!;
-    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public Booking? Booking { get; set; }
 }
