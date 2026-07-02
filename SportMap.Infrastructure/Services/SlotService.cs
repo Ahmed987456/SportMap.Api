@@ -31,6 +31,15 @@ public class SlotService : ISlotService
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
+        foreach (var slot in slots)
+        {
+            var end = slot.Date.ToDateTime(slot.EndTime);
+
+            if (end <= now)
+                slot.IsAvailable = false;
+        }
+        await _context.SaveChangesAsync();
+
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
