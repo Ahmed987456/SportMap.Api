@@ -43,11 +43,12 @@ public class BookingService : IBookingService
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
 
-        var now = DateTime.UtcNow;
+
         // لو الحجز لليوم الحالي والميعاد بدأ أو انتهى
 
-        var slotStart = request.BookingDate.ToDateTime(slot.StartTime).ToUniversalTime();
-        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime).ToUniversalTime();
+        var now = DateTime.UtcNow;
+
+        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime);
 
         if (slotEnd <= now)
         {
