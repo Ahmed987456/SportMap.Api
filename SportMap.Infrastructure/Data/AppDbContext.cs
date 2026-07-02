@@ -43,11 +43,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(b => b.VenueId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // One-to-One (Original - No migration needed)
         modelBuilder.Entity<Booking>()
-    .HasOne(b => b.TimeSlot)
-    .WithOne(t => t.Booking)
-    .HasForeignKey<Booking>(b => b.TimeSlotId)
-    .OnDelete(DeleteBehavior.Restrict);
+            .HasOne(b => b.TimeSlot)
+            .WithOne(t => t.Booking)
+            .HasForeignKey<Booking>(b => b.TimeSlotId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Review Relationships
         modelBuilder.Entity<Review>()
@@ -69,6 +70,11 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Booking>()
             .Property(x => x.TotalPrice)
+            .HasPrecision(10, 2);
+
+        // Precision for DepositAmount
+        modelBuilder.Entity<Booking>()
+            .Property(x => x.DepositAmount)
             .HasPrecision(10, 2);
     }
 }

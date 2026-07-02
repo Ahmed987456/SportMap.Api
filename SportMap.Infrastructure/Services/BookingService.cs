@@ -18,12 +18,12 @@ public class BookingService : IBookingService
         _notificationService = notificationService;
     }
 
+    private static DateTime NowEgypt() =>
+        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Egypt Standard Time");
+
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
-        var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-            DateTime.UtcNow,
-            "Egypt Standard Time"
-        );
+        var now = NowEgypt();
 
         var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == request.VenueId);
 
@@ -38,14 +38,20 @@ public class BookingService : IBookingService
 
         if (slot == null) throw new Exception("Time slot not found");
 
-        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime);
+        // التحقق من انتهاء الميعاد باستخدام التوقيت المصري
+        var slotEndDateTime = request.BookingDate.ToDateTime(slot.EndTime);
+        if (slot.EndTime <= slot.StartTime)
+        {
+            slotEndDateTime = slotEndDateTime.AddDays(1);
+        }
 
-        if (slotEnd <= now)
+        if (slotEndDateTime <= now)
             throw new Exception("This slot has already expired");
 
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
 
+        // ✅ التحقق الصحيح: مفيش Booking نشط (مش Cancelled) على نفس الـ Slot والتاريخ
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
             b.BookingDate == request.BookingDate &&
@@ -54,9 +60,11 @@ public class BookingService : IBookingService
         if (alreadyBooked)
             throw new Exception("This slot is already booked for the selected date");
 
+        // حساب السعر والعربون
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
-        var totalPrice = (decimal)hours * venue.PricePerHour;
+        if (hours < 0) hours += 24;
 
+        var totalPrice = Math.Round((decimal)hours * venue.PricePerHour, 2);
         var depositAmount = Math.Round(totalPrice * venue.DepositPercentage / 100, 2);
 
         var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
@@ -74,6 +82,11 @@ public class BookingService : IBookingService
         };
 
         _context.Bookings.Add(booking);
+
+        // ✅ نخلي الـ Slot مش متاح عشان محدش يحجزه
+        slot.IsAvailable = false;
+        slot.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
 
         await _notificationService.SendToUserAsync(
@@ -85,8 +98,11 @@ public class BookingService : IBookingService
 
         return await GetBookingResponseAsync(booking.Id);
     }
+
     public async Task<List<BookingResponse>> GetMyBookingsAsync(int playerId)
     {
+        var now = NowEgypt();
+
         var bookings = await _context.Bookings
             .Include(b => b.Venue)
             .Include(b => b.Player)
@@ -95,7 +111,7 @@ public class BookingService : IBookingService
             .OrderByDescending(b => b.BookingDate)
             .ToListAsync();
 
-        return bookings.Select(ToResponse).ToList();
+        return bookings.Select(b => ToResponse(b, now)).ToList();
     }
 
     public async Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId)
@@ -117,7 +133,7 @@ public class BookingService : IBookingService
             .OrderByDescending(b => b.BookingDate)
             .ToListAsync();
 
-        return bookings.Select(ToResponse).ToList();
+        return bookings.Select(b => ToResponse(b, NowEgypt())).ToList();
     }
 
     public async Task CancelAsync(int bookingId, int playerId)
@@ -138,8 +154,15 @@ public class BookingService : IBookingService
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
 
-        // ✅ مش بنعمل حاجة للـ Slot لأن الـ Query بتاعة الـ Slots
-        // بتشيل المواعيد المحجوزة تلقائياً لما Status = Cancelled
+        // ✅ نرجع الـ Slot يتاح تاني - ده كان المفقود!
+        var slot = await _context.TimeSlots
+            .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
+
+        if (slot != null)
+        {
+            slot.IsAvailable = true;
+            slot.UpdatedAt = DateTime.UtcNow;
+        }
 
         await _context.SaveChangesAsync();
     }
@@ -164,7 +187,6 @@ public class BookingService : IBookingService
         booking.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        // إشعار للاعب
         await _notificationService.SendToUserAsync(
             booking.PlayerId,
             "تم تأكيد حجزك ✅",
@@ -178,10 +200,8 @@ public class BookingService : IBookingService
         if (string.IsNullOrWhiteSpace(paymentReference))
             throw new Exception("Payment reference is required");
 
-        // ✅ تحويل الأرقام العربية للإنجليزية
         var normalized = NormalizeArabicNumbers(paymentReference.Trim());
 
-        // ✅ تأكد إنها 4 أرقام بس
         if (!System.Text.RegularExpressions.Regex.IsMatch(normalized, @"^\d{4}$"))
             throw new Exception("يجب إدخال آخر 4 أرقام فقط من رقم العملية");
 
@@ -198,7 +218,6 @@ public class BookingService : IBookingService
         if (booking.PaymentStatus == PaymentStatus.Paid)
             throw new Exception("This booking is already paid");
 
-        // ✅ تأكد إن الرقم مش مستخدم قبل كده
         var referenceUsed = await _context.Bookings.AnyAsync(b =>
             b.PaymentReference == normalized &&
             b.Id != bookingId);
@@ -255,7 +274,7 @@ public class BookingService : IBookingService
             .Include(b => b.TimeSlot)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        return ToResponse(booking!);
+        return ToResponse(booking!, NowEgypt());
     }
 
     public async Task RejectPaymentAsync(int bookingId, int ownerId)
@@ -278,6 +297,17 @@ public class BookingService : IBookingService
         booking.PaymentReference = null;
         booking.PaymentSubmittedAt = null;
         booking.UpdatedAt = DateTime.UtcNow;
+
+        // ✅ نرجع الـ Slot يتاح تاني
+        var slot = await _context.TimeSlots
+            .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
+
+        if (slot != null)
+        {
+            slot.IsAvailable = true;
+            slot.UpdatedAt = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
 
         await _notificationService.SendToUserAsync(
@@ -288,24 +318,34 @@ public class BookingService : IBookingService
         );
     }
 
-
-    private static BookingResponse ToResponse(Booking booking) => new()
+    private static BookingResponse ToResponse(Booking booking, DateTime nowEgypt)
     {
-        Id = booking.Id,
-        VenueName = booking.Venue.Name,
-        PlayerName = booking.Player.Name,
-        StartTime = booking.TimeSlot.StartTime.ToString("HH:mm"),
-        EndTime = booking.TimeSlot.EndTime.ToString("HH:mm"),
-        BookingDate = booking.BookingDate,
-        TotalPrice = booking.TotalPrice,
-        DepositAmount = booking.DepositAmount,
-        PaymentReference = booking.PaymentReference,
-        Status = booking.Status.ToString(),
-        PaymentStatus = booking.PaymentStatus.ToString(),
-        VenueId = booking.VenueId,
-    };
+        var slotEnd = booking.BookingDate.ToDateTime(booking.TimeSlot.EndTime);
+        if (booking.TimeSlot.EndTime <= booking.TimeSlot.StartTime)
+        {
+            slotEnd = slotEnd.AddDays(1);
+        }
 
-    // ✅ تحويل الأرقام العربية للإنجليزية
+        var isExpired = slotEnd <= nowEgypt && booking.Status != BookingStatus.Cancelled;
+
+        return new BookingResponse
+        {
+            Id = booking.Id,
+            VenueName = booking.Venue.Name,
+            PlayerName = booking.Player.Name,
+            StartTime = booking.TimeSlot.StartTime.ToString("HH:mm"),
+            EndTime = booking.TimeSlot.EndTime.ToString("HH:mm"),
+            BookingDate = booking.BookingDate,
+            TotalPrice = booking.TotalPrice,
+            DepositAmount = Math.Round(booking.DepositAmount, 2),
+            PaymentReference = booking.PaymentReference,
+            Status = isExpired ? "Expired" : booking.Status.ToString(),
+            PaymentStatus = booking.PaymentStatus.ToString(),
+            VenueId = booking.VenueId,
+            IsExpired = isExpired
+        };
+    }
+
     private static string NormalizeArabicNumbers(string input)
     {
         return input

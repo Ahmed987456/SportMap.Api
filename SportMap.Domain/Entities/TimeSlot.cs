@@ -9,6 +9,8 @@ public class TimeSlot : BaseEntity
     public TimeOnly EndTime { get; set; }
     public bool IsAvailable { get; set; } = true;
 
+    public bool IsDeleted { get; set; } = false;
+
     // Foreign Key
     public int VenueId { get; set; }
 

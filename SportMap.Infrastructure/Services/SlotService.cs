@@ -30,12 +30,13 @@ public class SlotService : ISlotService
                 s.VenueId == venueId &&
                 s.Date == date &&
                 s.IsAvailable &&
-                // ✅ نشوف المواعيد اللي لسه مجاتش بس
+                !s.IsDeleted &&
+                // نشوف المواعيد اللي لسه مجاتش بس
                 (date > today || (date == today && s.EndTime > currentTime)))
             .OrderBy(s => s.StartTime)
             .ToListAsync();
 
-        // ✅ نشيل المواعيد المحجوزة
+        // نشيل المواعيد المحجوزة (مش Cancelled بس)
         var bookedSlotIds = await _context.Bookings
             .Where(b =>
                 b.VenueId == venueId &&
@@ -57,14 +58,16 @@ public class SlotService : ISlotService
         if (venue == null) throw new Exception("Venue not found");
         if (venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
-        var today = DateOnly.FromDateTime(NowEgypt());
+        var now = NowEgypt();
+        var today = DateOnly.FromDateTime(now);
+        var currentTime = TimeOnly.FromDateTime(now);
 
-        // ✅ صاحب الملعب يشوف كل المواعيد من النهارده وبعدها
+        // صاحب الملعب يشوف كل المواعيد من النهارده وبعدها
         var slots = await _context.TimeSlots
-    .Where(s => s.VenueId == venueId && s.Date >= today)
-    .OrderBy(s => s.Date)
-    .ThenBy(s => s.StartTime)
-    .ToListAsync();
+            .Where(s => s.VenueId == venueId && !s.IsDeleted)
+            .OrderBy(s => s.Date)
+            .ThenBy(s => s.StartTime)
+            .ToListAsync();
 
         return slots.Select(ToResponse).ToList();
     }
@@ -78,29 +81,21 @@ public class SlotService : ISlotService
 
         var now = NowEgypt();
         var today = DateOnly.FromDateTime(now);
+        var currentTime = TimeOnly.FromDateTime(now);
 
-        // ✅ التاريخ مش في الماضي
+        // التاريخ مش في الماضي
         if (request.Date < today)
             throw new Exception("لا يمكن إضافة مواعيد في الماضي");
 
-        // ✅ الوقت صح
-        if (request.StartTime >= request.EndTime)
-        {
-            // ✅ حل مشكلة 11 مساء → 12 صباح (اليوم التالي)
-            // لو EndTime أصغر من StartTime معناه الميعاد بيعدي منتصف الليل
-            // مش بنسمح بيه عشان يسبب تعقيد
-            throw new Exception("وقت البداية يجب أن يكون قبل وقت النهاية في نفس اليوم");
-        }
+        // لو النهارده، الوقت لازم يكون في المستقبل
+        if (request.Date == today && request.StartTime <= currentTime)
+            throw new Exception("لا يمكن إضافة مواعيد في وقت مضى");
 
-        // ✅ الميعاد مش في الماضي (بالتوقيت المصري)
-        if (request.Date == today)
-        {
-            var currentTime = TimeOnly.FromDateTime(now);
-            if (request.EndTime <= currentTime)
-                throw new Exception("هذا الميعاد انتهى بالفعل");
-        }
+        // الوقت صح - نسمح بـ cross-day (11 مساءً → 12 صباحاً)
+        if (request.StartTime == request.EndTime)
+            throw new Exception("وقت البداية يجب أن يكون مختلف عن وقت النهاية");
 
-        // ✅ مفيش Overlap
+        // مفيش Overlap
         var overlap = await _context.TimeSlots.AnyAsync(s =>
             s.VenueId == venueId &&
             s.Date == request.Date &&

@@ -16,6 +16,9 @@ public class BookingCleanupService : BackgroundService
         _serviceProvider = serviceProvider;
     }
 
+    private static DateTime NowEgypt() =>
+        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Egypt Standard Time");
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -26,23 +29,31 @@ public class BookingCleanupService : BackgroundService
                 var notificationService = scope.ServiceProvider
                     .GetRequiredService<INotificationService>();
 
-                var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
-                    DateTime.UtcNow, "Egypt Standard Time");
-
-                var cutoff = DateTime.UtcNow.AddMinutes(-30);
+                var egyptNow = NowEgypt();
+                var cutoffUtc = DateTime.UtcNow.AddMinutes(-30);
 
                 var expiredBookings = await context.Bookings
                     .Include(b => b.Venue)
                     .Where(b =>
                         b.Status == BookingStatus.Pending &&
                         b.PaymentStatus == PaymentStatus.Unpaid &&
-                        b.CreatedAt <= cutoff)
+                        b.CreatedAt <= cutoffUtc)
                     .ToListAsync(stoppingToken);
 
                 foreach (var booking in expiredBookings)
                 {
                     booking.Status = BookingStatus.Cancelled;
                     booking.UpdatedAt = DateTime.UtcNow;
+
+                    // نرجع الـ Slot يتاح تاني
+                    var slot = await context.TimeSlots
+                        .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId, stoppingToken);
+
+                    if (slot != null)
+                    {
+                        slot.IsAvailable = true;
+                        slot.UpdatedAt = DateTime.UtcNow;
+                    }
 
                     try
                     {

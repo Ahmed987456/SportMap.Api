@@ -15,4 +15,6 @@ public class BookingResponse
     public decimal DepositAmount { get; set; }
     public string? PaymentReference { get; set; }
 
+    public bool IsExpired { get; set; }
+
 }
