@@ -48,7 +48,7 @@ public class BookingService : IBookingService
 
         var now = DateTime.UtcNow;
 
-        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime);
+        var slotEnd = request.BookingDate.ToDateTime(slot.EndTime).ToUniversalTime();
 
         if (slotEnd <= now)
         {
