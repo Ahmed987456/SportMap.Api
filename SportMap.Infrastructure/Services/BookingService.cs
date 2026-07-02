@@ -38,7 +38,7 @@ public class BookingService : IBookingService
 
         if (slot == null) throw new Exception("Time slot not found");
 
-        // التحقق من انتهاء الميعاد باستخدام التوقيت المصري
+        // التحقق من انتهاء الميعاد
         var slotEndDateTime = request.BookingDate.ToDateTime(slot.EndTime);
         if (slot.EndTime <= slot.StartTime)
         {
@@ -51,16 +51,17 @@ public class BookingService : IBookingService
         if (!slot.IsAvailable)
             throw new Exception("Time slot is not available");
 
-        // ✅ التحقق الصحيح: مفيش Booking نشط (مش Cancelled) على نفس الـ Slot والتاريخ
+        // ✅ التحقق مفيش حجز نشط على نفس الـ Slot والتاريخ
         var alreadyBooked = await _context.Bookings.AnyAsync(b =>
             b.TimeSlotId == request.TimeSlotId &&
             b.BookingDate == request.BookingDate &&
-            b.Status != BookingStatus.Cancelled);
+            b.Status != BookingStatus.Cancelled &&
+            !b.IsDeleted);
 
         if (alreadyBooked)
             throw new Exception("This slot is already booked for the selected date");
 
-        // حساب السعر والعربون
+        // حساب السعر
         var hours = (slot.EndTime - slot.StartTime).TotalHours;
         if (hours < 0) hours += 24;
 
@@ -83,7 +84,7 @@ public class BookingService : IBookingService
 
         _context.Bookings.Add(booking);
 
-        // ✅ نخلي الـ Slot مش متاح عشان محدش يحجزه
+        // ✅ نخلي الـ Slot مش متاح
         slot.IsAvailable = false;
         slot.UpdatedAt = DateTime.UtcNow;
 
@@ -107,7 +108,7 @@ public class BookingService : IBookingService
             .Include(b => b.Venue)
             .Include(b => b.Player)
             .Include(b => b.TimeSlot)
-            .Where(b => b.PlayerId == playerId)
+            .Where(b => b.PlayerId == playerId && !b.IsDeleted)
             .OrderByDescending(b => b.BookingDate)
             .ToListAsync();
 
@@ -116,20 +117,15 @@ public class BookingService : IBookingService
 
     public async Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId)
     {
-        var venue = await _context.Venues
-            .FirstOrDefaultAsync(v => v.Id == venueId);
-
-        if (venue == null)
-            throw new Exception("Venue not found");
-
-        if (venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
+        var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == venueId);
+        if (venue == null) throw new Exception("Venue not found");
+        if (venue.OwnerId != ownerId) throw new Exception("Unauthorized");
 
         var bookings = await _context.Bookings
             .Include(b => b.Venue)
             .Include(b => b.Player)
             .Include(b => b.TimeSlot)
-            .Where(b => b.VenueId == venueId)
+            .Where(b => b.VenueId == venueId && !b.IsDeleted)
             .OrderByDescending(b => b.BookingDate)
             .ToListAsync();
 
@@ -142,22 +138,16 @@ public class BookingService : IBookingService
             .Include(b => b.TimeSlot)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-            throw new Exception("Booking not found");
-
-        if (booking.PlayerId != playerId)
-            throw new Exception("Unauthorized");
-
-        if (booking.Status == BookingStatus.Cancelled)
-            throw new Exception("Booking is already cancelled");
+        if (booking == null) throw new Exception("Booking not found");
+        if (booking.PlayerId != playerId) throw new Exception("Unauthorized");
+        if (booking.Status == BookingStatus.Cancelled) throw new Exception("Booking is already cancelled");
 
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
+        booking.IsDeleted = true;  // ✅ Soft delete للـ Booking القديم
 
-        // ✅ نرجع الـ Slot يتاح تاني - ده كان المفقود!
-        var slot = await _context.TimeSlots
-            .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
-
+        // ✅ نرجع الـ Slot يتاح تاني
+        var slot = await _context.TimeSlots.FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
         if (slot != null)
         {
             slot.IsAvailable = true;
@@ -174,14 +164,9 @@ public class BookingService : IBookingService
             .Include(b => b.Player)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-            throw new Exception("Booking not found");
-
-        if (booking.Venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        if (booking.Status != BookingStatus.Pending)
-            throw new Exception("Booking is not in pending state");
+        if (booking == null) throw new Exception("Booking not found");
+        if (booking.Venue.OwnerId != ownerId) throw new Exception("Unauthorized");
+        if (booking.Status != BookingStatus.Pending) throw new Exception("Booking is not in pending state");
 
         booking.Status = BookingStatus.Confirmed;
         booking.UpdatedAt = DateTime.UtcNow;
@@ -191,7 +176,7 @@ public class BookingService : IBookingService
             booking.PlayerId,
             "تم تأكيد حجزك ✅",
             $"حجزك في {booking.Venue.Name} يوم {booking.BookingDate} اتأكد!",
-             "/player/bookings"
+            "/player/bookings"
         );
     }
 
@@ -209,18 +194,12 @@ public class BookingService : IBookingService
             .Include(b => b.Venue)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-            throw new Exception("Booking not found");
-
-        if (booking.PlayerId != playerId)
-            throw new Exception("Unauthorized");
-
-        if (booking.PaymentStatus == PaymentStatus.Paid)
-            throw new Exception("This booking is already paid");
+        if (booking == null) throw new Exception("Booking not found");
+        if (booking.PlayerId != playerId) throw new Exception("Unauthorized");
+        if (booking.PaymentStatus == PaymentStatus.Paid) throw new Exception("This booking is already paid");
 
         var referenceUsed = await _context.Bookings.AnyAsync(b =>
-            b.PaymentReference == normalized &&
-            b.Id != bookingId);
+            b.PaymentReference == normalized && b.Id != bookingId);
 
         if (referenceUsed)
             throw new Exception("هذا الرقم المرجعي تم استخدامه من قبل");
@@ -244,14 +223,9 @@ public class BookingService : IBookingService
             .Include(b => b.Venue)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-            throw new Exception("Booking not found");
-
-        if (booking.Venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        if (booking.PaymentStatus != PaymentStatus.PendingVerification)
-            throw new Exception("No pending payment to confirm");
+        if (booking == null) throw new Exception("Booking not found");
+        if (booking.Venue.OwnerId != ownerId) throw new Exception("Unauthorized");
+        if (booking.PaymentStatus != PaymentStatus.PendingVerification) throw new Exception("No pending payment to confirm");
 
         booking.PaymentStatus = PaymentStatus.Paid;
         booking.Status = BookingStatus.Confirmed;
@@ -266,42 +240,25 @@ public class BookingService : IBookingService
         );
     }
 
-    private async Task<BookingResponse> GetBookingResponseAsync(int bookingId)
-    {
-        var booking = await _context.Bookings
-            .Include(b => b.Venue)
-            .Include(b => b.Player)
-            .Include(b => b.TimeSlot)
-            .FirstOrDefaultAsync(b => b.Id == bookingId);
-
-        return ToResponse(booking!, NowEgypt());
-    }
-
     public async Task RejectPaymentAsync(int bookingId, int ownerId)
     {
         var booking = await _context.Bookings
             .Include(b => b.Venue)
             .FirstOrDefaultAsync(b => b.Id == bookingId);
 
-        if (booking == null)
-            throw new Exception("Booking not found");
-
-        if (booking.Venue.OwnerId != ownerId)
-            throw new Exception("Unauthorized");
-
-        if (booking.PaymentStatus != PaymentStatus.PendingVerification)
-            throw new Exception("No pending payment to reject");
+        if (booking == null) throw new Exception("Booking not found");
+        if (booking.Venue.OwnerId != ownerId) throw new Exception("Unauthorized");
+        if (booking.PaymentStatus != PaymentStatus.PendingVerification) throw new Exception("No pending payment to reject");
 
         booking.Status = BookingStatus.Cancelled;
         booking.PaymentStatus = PaymentStatus.Unpaid;
         booking.PaymentReference = null;
         booking.PaymentSubmittedAt = null;
         booking.UpdatedAt = DateTime.UtcNow;
+        booking.IsDeleted = true;  // ✅ Soft delete
 
         // ✅ نرجع الـ Slot يتاح تاني
-        var slot = await _context.TimeSlots
-            .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
-
+        var slot = await _context.TimeSlots.FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId);
         if (slot != null)
         {
             slot.IsAvailable = true;
@@ -316,6 +273,17 @@ public class BookingService : IBookingService
             $"تم إلغاء حجزك في {booking.Venue.Name} لأن الرقم المرجعي غير صحيح. احجز من جديد وأرسل الرقم الصحيح",
             "/player/bookings"
         );
+    }
+
+    private async Task<BookingResponse> GetBookingResponseAsync(int bookingId)
+    {
+        var booking = await _context.Bookings
+            .Include(b => b.Venue)
+            .Include(b => b.Player)
+            .Include(b => b.TimeSlot)
+            .FirstOrDefaultAsync(b => b.Id == bookingId);
+
+        return ToResponse(booking!, NowEgypt());
     }
 
     private static BookingResponse ToResponse(Booking booking, DateTime nowEgypt)

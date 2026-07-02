@@ -16,9 +16,6 @@ public class BookingCleanupService : BackgroundService
         _serviceProvider = serviceProvider;
     }
 
-    private static DateTime NowEgypt() =>
-        TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Egypt Standard Time");
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -29,7 +26,6 @@ public class BookingCleanupService : BackgroundService
                 var notificationService = scope.ServiceProvider
                     .GetRequiredService<INotificationService>();
 
-                var egyptNow = NowEgypt();
                 var cutoffUtc = DateTime.UtcNow.AddMinutes(-30);
 
                 var expiredBookings = await context.Bookings
@@ -43,9 +39,10 @@ public class BookingCleanupService : BackgroundService
                 foreach (var booking in expiredBookings)
                 {
                     booking.Status = BookingStatus.Cancelled;
+                    booking.IsDeleted = true;  // ✅ Soft delete
                     booking.UpdatedAt = DateTime.UtcNow;
 
-                    // نرجع الـ Slot يتاح تاني
+                    // ✅ نرجع الـ Slot يتاح تاني
                     var slot = await context.TimeSlots
                         .FirstOrDefaultAsync(s => s.Id == booking.TimeSlotId, stoppingToken);
 
