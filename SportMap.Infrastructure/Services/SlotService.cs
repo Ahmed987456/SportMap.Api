@@ -60,12 +60,13 @@ public class SlotService : ISlotService
         var today = DateOnly.FromDateTime(NowEgypt());
 
         // ✅ صاحب الملعب يشوف كل المواعيد من النهارده وبعدها
-        return await _context.TimeSlots
-            .Where(s => s.VenueId == venueId && s.Date >= today)
-            .OrderBy(s => s.Date)
-            .ThenBy(s => s.StartTime)
-            .Select(ToResponse)
-            .ToListAsync();
+        var slots = await _context.TimeSlots
+    .Where(s => s.VenueId == venueId && s.Date >= today)
+    .OrderBy(s => s.Date)
+    .ThenBy(s => s.StartTime)
+    .ToListAsync();
+
+        return slots.Select(ToResponse).ToList();
     }
 
     public async Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId)
