@@ -4,6 +4,7 @@ using SportMap.Application.Interfaces;
 using SportMap.Domain.Entities;
 using SportMap.Domain.Enums;
 using SportMap.Infrastructure.Data;
+using System.Data;
 
 namespace SportMap.Infrastructure.Services;
 
@@ -20,71 +21,91 @@ public class BookingService : IBookingService
 
     public async Task<BookingResponse> CreateAsync(BookingRequest request, int playerId)
     {
-        var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+        await using var transaction =
+        await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
+        try
+        {
+
+            var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
             DateTime.UtcNow, "Egypt Standard Time");
 
-        var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == request.VenueId);
+            var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == request.VenueId);
 
-        if (venue == null) throw new Exception("Venue not found");
-        if (!venue.IsApproved) throw new Exception("Venue is not approved yet");
+            if (venue == null) throw new Exception("Venue not found");
+            if (!venue.IsApproved) throw new Exception("Venue is not approved yet");
 
-        if (request.BookingDate < DateOnly.FromDateTime(now))
-            throw new Exception("Cannot book a past date.");
+            if (request.BookingDate < DateOnly.FromDateTime(now))
+                throw new Exception("Cannot book a past date.");
 
-        var slot = await _context.TimeSlots
-            .FirstOrDefaultAsync(s => s.Id == request.TimeSlotId && s.VenueId == request.VenueId);
+            await _context.Database.ExecuteSqlRawAsync(
+               "SELECT 1 FROM \"TimeSlots\" WHERE \"Id\" = {0} FOR UPDATE",
+               request.TimeSlotId);
 
-        if (slot == null) throw new Exception("Time slot not found");
+            var slot = await _context.TimeSlots
+                .FirstOrDefaultAsync(s => s.Id == request.TimeSlotId && s.VenueId == request.VenueId);
 
-        if (!slot.IsAvailable)
-            throw new Exception("Time slot is not available");
+            if (slot == null) throw new Exception("Time slot not found");
 
-        // ✅ الاعتماد على StartTime بس
-        if (request.BookingDate == DateOnly.FromDateTime(now))
-        {
-            var currentTime = TimeOnly.FromDateTime(now);
-            if (slot.StartTime <= currentTime)
-                throw new Exception("This slot has already started or expired");
+            if (!slot.IsAvailable)
+                throw new Exception("Time slot is not available");
+
+            // ✅ الاعتماد على StartTime بس
+            if (request.BookingDate == DateOnly.FromDateTime(now))
+            {
+                var currentTime = TimeOnly.FromDateTime(now);
+                if (slot.StartTime <= currentTime)
+                    throw new Exception("This slot has already started or expired");
+            }
+
+            // ✅ نتأكد إنه مش محجوز (بما فيها لو كان الحجز السابق اتلغى، ده بيتجاهل الملغي تلقائياً)
+            var alreadyBooked = await _context.Bookings.AnyAsync(b =>
+                b.TimeSlotId == request.TimeSlotId &&
+                b.BookingDate == request.BookingDate &&
+                b.Status != BookingStatus.Cancelled);
+
+            if (alreadyBooked)
+                throw new Exception("This slot is already booked for the selected date");
+
+            var hours = (slot.EndTime - slot.StartTime).TotalHours;
+            var totalPrice = (decimal)hours * venue.PricePerHour;
+            var depositAmount = Math.Round(totalPrice * venue.DepositPercentage / 100, 2);
+
+            var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
+
+            var booking = new Booking
+            {
+                VenueId = request.VenueId,
+                TimeSlotId = request.TimeSlotId,
+                PlayerId = playerId,
+                BookingDate = request.BookingDate,
+                TotalPrice = totalPrice,
+                DepositAmount = depositAmount,
+                Status = BookingStatus.Pending,
+                PaymentStatus = PaymentStatus.Unpaid
+            };
+
+            _context.Bookings.Add(booking);
+
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            await _notificationService.SendToUserAsync(
+                venue.OwnerId,
+                "حجز جديد! 🎉",
+                $"{player?.Name ?? "لاعب"} حجز {venue.Name}",
+                $"/owner/venues/{venue.Id}/bookings"
+            );
+
+            return await GetBookingResponseAsync(booking.Id);
+
         }
-
-        // ✅ نتأكد إنه مش محجوز (بما فيها لو كان الحجز السابق اتلغى، ده بيتجاهل الملغي تلقائياً)
-        var alreadyBooked = await _context.Bookings.AnyAsync(b =>
-            b.TimeSlotId == request.TimeSlotId &&
-            b.BookingDate == request.BookingDate &&
-            b.Status != BookingStatus.Cancelled);
-
-        if (alreadyBooked)
-            throw new Exception("This slot is already booked for the selected date");
-
-        var hours = (slot.EndTime - slot.StartTime).TotalHours;
-        var totalPrice = (decimal)hours * venue.PricePerHour;
-        var depositAmount = Math.Round(totalPrice * venue.DepositPercentage / 100, 2);
-
-        var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
-
-        var booking = new Booking
+        catch
         {
-            VenueId = request.VenueId,
-            TimeSlotId = request.TimeSlotId,
-            PlayerId = playerId,
-            BookingDate = request.BookingDate,
-            TotalPrice = totalPrice,
-            DepositAmount = depositAmount,
-            Status = BookingStatus.Pending,
-            PaymentStatus = PaymentStatus.Unpaid
-        };
-
-        _context.Bookings.Add(booking);
-        await _context.SaveChangesAsync();
-
-        await _notificationService.SendToUserAsync(
-            venue.OwnerId,
-            "حجز جديد! 🎉",
-            $"{player?.Name ?? "لاعب"} حجز {venue.Name}",
-            $"/owner/venues/{venue.Id}/bookings"
-        );
-
-        return await GetBookingResponseAsync(booking.Id);
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
     public async Task<List<BookingResponse>> GetMyBookingsAsync(int playerId)
     {
