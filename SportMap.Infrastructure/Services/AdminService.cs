@@ -162,19 +162,20 @@ public class AdminService : IAdminService
 
     public async Task ResetDemoDataAsync()
     {
-        await _context.Notifications.ExecuteDeleteAsync();
-        await _context.Reviews.ExecuteDeleteAsync();
-        await _context.Bookings.ExecuteDeleteAsync();
-        await _context.TimeSlots.ExecuteDeleteAsync();
-        await _context.VenueImages.ExecuteDeleteAsync();
-        await _context.Venues.ExecuteDeleteAsync();
-        await _context.UserDevices.ExecuteDeleteAsync();
+        // الترتيب مهم جداً: نمسح الجداول اللي "بتشاور" على جداول تانية الأول
+        await _context.Notifications.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await _context.Reviews.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await _context.Bookings.IgnoreQueryFilters().ExecuteDeleteAsync();      // ✅ لازم تتمسح قبل TimeSlots و Venues
+        await _context.TimeSlots.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await _context.VenueImages.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await _context.Venues.IgnoreQueryFilters().ExecuteDeleteAsync();
+        await _context.UserDevices.IgnoreQueryFilters().ExecuteDeleteAsync();
 
         await _context.Users
+            .IgnoreQueryFilters()
             .Where(x => x.Role != UserRole.SuperAdmin)
             .ExecuteDeleteAsync();
 
-        // ✅ Reset الـ Auto Increment لكل جدول
         await ResetSequenceAsync("Notifications");
         await ResetSequenceAsync("Reviews");
         await ResetSequenceAsync("Bookings");
@@ -183,7 +184,6 @@ public class AdminService : IAdminService
         await ResetSequenceAsync("Venues");
         await ResetSequenceAsync("UserDevices");
 
-        // ✅ الـ Users محتاج معاملة خاصة عشان الأدمن لسه موجود
         await ResetUsersSequenceAsync();
     }
 
@@ -196,7 +196,7 @@ public class AdminService : IAdminService
 
     private async Task ResetUsersSequenceAsync()
     {
-        var maxId = await _context.Users.MaxAsync(u => (int?)u.Id) ?? 0;
+        var maxId = await _context.Users.IgnoreQueryFilters().MaxAsync(u => (int?)u.Id) ?? 0;
         var nextId = maxId + 1;
 
         await _context.Database.ExecuteSqlRawAsync(
