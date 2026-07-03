@@ -111,4 +111,24 @@ public class AdminController : ControllerBase
             message = "Demo data has been cleared."
         });
     }
+
+    /// <summary>
+    /// 👑 أدمن فقط — يشوف كل اللاعبين
+    /// </summary>
+    [HttpGet("players")]
+    public async Task<IActionResult> GetAllPlayers()
+    {
+        var players = await _adminService.GetAllPlayersAsync();
+        return Ok(ApiResponse<List<UserListResponse>>.Ok(players));
+    }
+
+    /// <summary>
+    /// 👑 أدمن فقط — يشوف كل أصحاب الملاعب
+    /// </summary>
+    [HttpGet("owners")]
+    public async Task<IActionResult> GetAllOwners()
+    {
+        var owners = await _adminService.GetAllOwnersAsync();
+        return Ok(ApiResponse<List<UserListResponse>>.Ok(owners));
+    }
 }

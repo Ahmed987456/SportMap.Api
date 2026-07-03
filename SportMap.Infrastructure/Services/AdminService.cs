@@ -157,6 +157,37 @@ public class AdminService : IAdminService
             .ToListAsync();
     }
 
+    public async Task<List<UserListResponse>> GetAllPlayersAsync()
+    {
+        return await _context.Users
+            .Where(u => u.Role == UserRole.Player)
+            .OrderByDescending(u => u.CreatedAt)
+            .Select(u => new UserListResponse
+            {
+                Id = u.Id,
+                Name = u.Name,
+                Email = u.Email,
+                Phone = u.Phone,
+                CreatedAt = u.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<List<UserListResponse>> GetAllOwnersAsync()
+    {
+        return await _context.Users
+            .Where(u => u.Role == UserRole.VenueOwner)
+            .OrderByDescending(u => u.CreatedAt)
+            .Select(u => new UserListResponse
+            {
+                Id = u.Id,
+                Name = u.Name,
+                Email = u.Email,
+                Phone = u.Phone,
+                CreatedAt = u.CreatedAt
+            })
+            .ToListAsync();
+    }
     // نفس الـ ToResponse اللي في VenueService
     // بس هنا محتاجينها عشان AdminService مش بيورث منه
 

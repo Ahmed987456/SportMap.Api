@@ -24,4 +24,8 @@ public interface IAdminService
     Task<List<VenueResponse>> GetSuspendedVenuesAsync();
     //حذف  الداتا بيز
     Task ResetDemoDataAsync();
+
+    Task<List<UserListResponse>> GetAllPlayersAsync();
+
+    Task<List<UserListResponse>> GetAllOwnersAsync();
 }
