@@ -5,7 +5,7 @@ namespace SportMap.Application.Interfaces;
 public interface ISlotService
 {
     Task<List<SlotResponse>> GetVenueSlotsAsync(int venueId, DateOnly date);
-    Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId);
+    Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId, DateOnly? date = null);
     Task<SlotResponse> CreateAsync(int venueId, SlotRequest request, int ownerId);
     Task DeleteAsync(int slotId, int ownerId);
     Task ToggleAvailabilityAsync(int slotId, int ownerId);

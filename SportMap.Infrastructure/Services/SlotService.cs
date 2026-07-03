@@ -50,7 +50,7 @@ public class SlotService : ISlotService
             .ToList();
     }
 
-    public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId)
+    public async Task<List<SlotResponse>> GetAllVenueSlotsAsync(int venueId, int ownerId, DateOnly? date = null)
     {
         var venue = await _context.Venues.FirstOrDefaultAsync(v => v.Id == venueId);
         if (venue == null) throw new Exception("Venue not found");
@@ -58,18 +58,29 @@ public class SlotService : ISlotService
 
         var now = NowEgypt();
         var today = DateOnly.FromDateTime(now);
-        var fromDate = today.AddDays(-14);
 
-        var slots = await _context.TimeSlots
-            .Where(s => s.VenueId == venueId && s.Date >= fromDate)
+        var query = _context.TimeSlots.Where(s => s.VenueId == venueId);
+
+        if (date.HasValue)
+        {
+            // ✅ لو مبعتش تاريخ، نجيب مواعيد اليوم ده بس
+            query = query.Where(s => s.Date == date.Value);
+        }
+        else
+        {
+            // ✅ افتراضياً نجيب مواعيد النهارده بس
+            query = query.Where(s => s.Date == today);
+        }
+
+        var slots = await query
             .OrderBy(s => s.Date)
             .ThenBy(s => s.StartTime)
-            .ToListAsync();   // ✅ ننفذ الكويري الأول
+            .ToListAsync();
 
         var bookedSlotIds = await _context.Bookings
-    .Where(b => b.Status != BookingStatus.Cancelled)
-    .Select(b => b.TimeSlotId)
-    .ToListAsync();
+            .Where(b => b.Status != BookingStatus.Cancelled)
+            .Select(b => b.TimeSlotId)
+            .ToListAsync();
 
         return slots.Select(s =>
         {

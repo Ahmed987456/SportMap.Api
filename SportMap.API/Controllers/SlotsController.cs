@@ -33,10 +33,10 @@ public class SlotsController : ControllerBase
     /// </summary>
     [HttpGet("all")]
     [Authorize(Roles = "VenueOwner")]
-    public async Task<IActionResult> GetAllSlots(int venueId)
+    public async Task<IActionResult> GetAllSlots(int venueId, [FromQuery] DateOnly? date)
     {
         var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var slots = await _slotService.GetAllVenueSlotsAsync(venueId, ownerId);
+        var slots = await _slotService.GetAllVenueSlotsAsync(venueId, ownerId, date);
         return Ok(ApiResponse<List<SlotResponse>>.Ok(slots));
     }
 
