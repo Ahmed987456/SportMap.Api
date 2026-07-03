@@ -29,7 +29,7 @@ public class BookingCleanupService : BackgroundService
                 var egyptNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
                     DateTime.UtcNow, "Egypt Standard Time");
 
-                var cutoff = DateTime.UtcNow.AddMinutes(-30);
+                var cutoff = DateTime.UtcNow.AddMinutes(-5);
 
                 var expiredBookings = await context.Bookings
                     .Include(b => b.Venue)
