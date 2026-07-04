@@ -311,6 +311,61 @@ public class BookingService : IBookingService
         );
     }
 
+    public async Task<VenueRevenueSummaryResponse> GetOwnerRevenueAsync(int ownerId)
+    {
+        var now = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+            DateTime.UtcNow, "Egypt Standard Time");
+
+        // ✅ نجيب كل الحجوزات المدفوعة بتاعة ملاعب صاحب الملعب ده
+        var paidBookings = await _context.Bookings
+            .Include(b => b.Venue)
+            .Where(b =>
+                b.Venue.OwnerId == ownerId &&
+                b.PaymentStatus == PaymentStatus.Paid)
+            .ToListAsync();
+
+        // ✅ نجمعهم حسب الشهر
+        var grouped = paidBookings
+            .GroupBy(b => new { b.BookingDate.Year, b.BookingDate.Month })
+            .Select(g => new MonthlyRevenueResponse
+            {
+                Year = g.Key.Year,
+                Month = g.Key.Month,
+                MonthName = new DateTime(g.Key.Year, g.Key.Month, 1)
+                    .ToString("MMMM yyyy", new System.Globalization.CultureInfo("ar-EG")),
+                TotalRevenue = g.Sum(b => b.TotalPrice),
+                BookingsCount = g.Count()
+            })
+            .OrderByDescending(x => x.Year)
+            .ThenByDescending(x => x.Month)
+            .ToList();
+
+        var thisMonth = grouped.FirstOrDefault(g => g.Year == now.Year && g.Month == now.Month);
+        var lastMonthDate = now.AddMonths(-1);
+        var lastMonth = grouped.FirstOrDefault(g => g.Year == lastMonthDate.Year && g.Month == lastMonthDate.Month);
+
+        var thisMonthRevenue = thisMonth?.TotalRevenue ?? 0;
+        var lastMonthRevenue = lastMonth?.TotalRevenue ?? 0;
+
+        decimal percentageChange = 0;
+        if (lastMonthRevenue > 0)
+        {
+            percentageChange = Math.Round(
+                ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100, 1);
+        }
+        else if (thisMonthRevenue > 0)
+        {
+            percentageChange = 100;
+        }
+
+        return new VenueRevenueSummaryResponse
+        {
+            ThisMonthRevenue = thisMonthRevenue,
+            LastMonthRevenue = lastMonthRevenue,
+            PercentageChange = percentageChange,
+            MonthlyBreakdown = grouped.Take(6).ToList() // آخر 6 شهور
+        };
+    }
 
     private static BookingResponse ToResponse(Booking booking) => new()
     {

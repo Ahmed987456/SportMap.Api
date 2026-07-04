@@ -23,4 +23,6 @@ public interface IBookingService
     Task ConfirmPaymentAsync(int bookingId, int ownerId);
 
     Task RejectPaymentAsync(int bookingId, int ownerId);
+
+    Task<VenueRevenueSummaryResponse> GetOwnerRevenueAsync(int ownerId);
 }

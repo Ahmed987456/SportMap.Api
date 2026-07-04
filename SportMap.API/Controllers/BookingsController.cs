@@ -117,4 +117,16 @@ public class BookingsController : ControllerBase
         await _bookingService.RejectPaymentAsync(bookingId, ownerId);
         return Ok(ApiResponse<object>.Ok(null!, "Payment rejected, booking cancelled"));
     }
+
+    /// <summary>
+    /// 🏟️ صاحب ملعب فقط — يشوف إيراداته الشهرية
+    /// </summary>
+    [HttpGet("owner/revenue")]
+    [Authorize(Roles = "VenueOwner")]
+    public async Task<IActionResult> GetOwnerRevenue()
+    {
+        var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var revenue = await _bookingService.GetOwnerRevenueAsync(ownerId);
+        return Ok(ApiResponse<VenueRevenueSummaryResponse>.Ok(revenue));
+    }
 }
