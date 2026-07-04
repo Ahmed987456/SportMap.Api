@@ -28,4 +28,6 @@ public interface IAdminService
     Task<List<UserListResponse>> GetAllPlayersAsync();
 
     Task<List<UserListResponse>> GetAllOwnersAsync();
+
+    Task<List<VenueListResponse>> GetAllVenuesListAsync();
 }

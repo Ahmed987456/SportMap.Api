@@ -131,4 +131,14 @@ public class AdminController : ControllerBase
         var owners = await _adminService.GetAllOwnersAsync();
         return Ok(ApiResponse<List<UserListResponse>>.Ok(owners));
     }
+
+    /// <summary>
+    /// 👑 أدمن فقط — يشوف كل الملاعب
+    /// </summary>
+    [HttpGet("venues-list")]
+    public async Task<IActionResult> GetAllVenuesList()
+    {
+        var venues = await _adminService.GetAllVenuesListAsync();
+        return Ok(ApiResponse<List<VenueListResponse>>.Ok(venues));
+    }
 }

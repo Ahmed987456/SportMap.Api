@@ -188,6 +188,26 @@ public class AdminService : IAdminService
             })
             .ToListAsync();
     }
+
+    public async Task<List<VenueListResponse>> GetAllVenuesListAsync()
+    {
+        return await _context.Venues
+            .IgnoreQueryFilters()
+            .Include(v => v.Owner)
+            .OrderByDescending(v => v.CreatedAt)
+            .Select(v => new VenueListResponse
+            {
+                Id = v.Id,
+                Name = v.Name,
+                OwnerName = v.Owner.Name,
+                OwnerPhone = v.Owner.Phone,
+                Address = v.Address,
+                PricePerHour = v.PricePerHour,
+                IsApproved = v.IsApproved,
+                CreatedAt = v.CreatedAt
+            })
+            .ToListAsync();
+    }
     // نفس الـ ToResponse اللي في VenueService
     // بس هنا محتاجينها عشان AdminService مش بيورث منه
 
