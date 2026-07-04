@@ -73,6 +73,7 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddHostedService<BookingCleanupService>();
+builder.Services.AddScoped<IFavoriteService, FavoriteService>();
 
 // Validation
 builder.Services.AddFluentValidationAutoValidation();

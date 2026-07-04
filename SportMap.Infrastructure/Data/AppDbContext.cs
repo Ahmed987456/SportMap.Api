@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<UserDevice> UserDevices { get; set; }
 
+    public DbSet<Favorite> Favorites { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -29,6 +31,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<VenueImage>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<UserDevice>().HasQueryFilter(x => !x.IsDeleted);
         modelBuilder.Entity<Notification>().HasQueryFilter(x => !x.IsDeleted);
+        modelBuilder.Entity<Favorite>().HasQueryFilter(x => !x.IsDeleted);
 
         // Booking Relationships
         modelBuilder.Entity<Booking>()
@@ -76,5 +79,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Booking>()
             .Property(x => x.DepositAmount)
             .HasPrecision(10, 2);
+
+        modelBuilder.Entity<Favorite>()
+    .HasIndex(f => new { f.PlayerId, f.VenueId })
+    .IsUnique();
     }
 }
