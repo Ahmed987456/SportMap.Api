@@ -109,6 +109,7 @@ public class BookingService : IBookingService
             throw;
         }
     }
+
     public async Task<List<BookingResponse>> GetMyBookingsAsync(int playerId)
     {
         var bookings = await _context.Bookings
