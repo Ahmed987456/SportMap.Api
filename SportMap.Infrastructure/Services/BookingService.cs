@@ -67,8 +67,12 @@ public class BookingService : IBookingService
             if (alreadyBooked)
                 throw new Exception("This slot is already booked");
 
-            var hours = (slot.EndTime - slot.StartTime).TotalHours;
-            var totalPrice = (decimal)hours * venue.PricePerHour;
+            var rawMinutes = (slot.EndTime - slot.StartTime).TotalMinutes;
+
+            // نقرب لأقرب ساعة كاملة لفوق (59 دقيقة → ساعة، 119 دقيقة → ساعتين)
+            var roundedHours = Math.Ceiling(rawMinutes / 60);
+
+            var totalPrice = (decimal)roundedHours * venue.PricePerHour;
             var depositAmount = Math.Round(totalPrice * venue.DepositPercentage / 100, 2);
 
             var player = await _context.Users.FirstOrDefaultAsync(u => u.Id == playerId);
