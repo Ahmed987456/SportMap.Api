@@ -238,6 +238,31 @@ public class AdminService : IAdminService
         await ResetUsersSequenceAsync();
     }
 
+    public async Task<List<VenueResponse>> GetDeletedVenuesAsync()
+    {
+        return await _context.Venues
+            .IgnoreQueryFilters()
+            .Include(v => v.Owner)
+            .Where(v => v.IsDeleted)
+            .Select(v => ToResponse(v))
+            .ToListAsync();
+    }
+
+    public async Task PromoteToAdminAsync(int userId)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user == null)
+            throw new Exception("User not found");
+
+        if (user.Role == UserRole.SuperAdmin)
+            throw new Exception("User is already an admin");
+
+        user.Role = UserRole.SuperAdmin;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
     private async Task ResetSequenceAsync(string tableName)
     {
         await _context.Database.ExecuteSqlRawAsync(
@@ -271,4 +296,5 @@ public class AdminService : IAdminService
 
         OwnerName = venue.Owner.Name
     };
+
 }

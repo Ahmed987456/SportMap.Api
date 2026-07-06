@@ -11,7 +11,7 @@ public interface IBookingService
     Task<List<BookingResponse>> GetMyBookingsAsync(int playerId);
 
     // صاحب الملعب يشوف حجوزات ملعبه
-    Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId);
+    Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId, DateOnly? date = null);
 
     // اللاعب يلغي حجزه
     Task CancelAsync(int bookingId, int playerId);
@@ -25,4 +25,5 @@ public interface IBookingService
     Task RejectPaymentAsync(int bookingId, int ownerId);
 
     Task<VenueRevenueSummaryResponse> GetOwnerRevenueAsync(int ownerId);
+
 }

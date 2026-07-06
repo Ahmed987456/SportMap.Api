@@ -51,10 +51,10 @@ public class BookingsController : ControllerBase
     /// </summary>
     [HttpGet("venue/{venueId}")]
     [Authorize(Roles = "VenueOwner")]
-    public async Task<IActionResult> GetVenueBookings(int venueId)
+    public async Task<IActionResult> GetVenueBookings(int venueId, [FromQuery] DateOnly? date)
     {
         var ownerId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var bookings = await _bookingService.GetVenueBookingsAsync(venueId, ownerId);
+        var bookings = await _bookingService.GetVenueBookingsAsync(venueId, ownerId, date);
         return Ok(ApiResponse<List<BookingResponse>>.Ok(bookings));
     }
 

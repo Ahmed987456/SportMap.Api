@@ -141,4 +141,24 @@ public class AdminController : ControllerBase
         var venues = await _adminService.GetAllVenuesListAsync();
         return Ok(ApiResponse<List<VenueListResponse>>.Ok(venues));
     }
+
+    /// <summary>
+    /// 👑 أدمن فقط — يشوف كل الملاعب المحذوفه
+    /// </summary>
+    [HttpGet("venues/deleted")]
+    public async Task<IActionResult> GetDeletedVenues()
+    {
+        var venues = await _adminService.GetDeletedVenuesAsync();
+        return Ok(ApiResponse<List<VenueResponse>>.Ok(venues));
+    }
+
+    /// <summary>
+    /// 👑 أدمن فقط — يرقي مستخدم (لاعب أو صاحب ملعب) ليصبح أدمن
+    /// </summary>
+    [HttpPatch("users/{userId}/promote")]
+    public async Task<IActionResult> PromoteToAdmin(int userId)
+    {
+        await _adminService.PromoteToAdminAsync(userId);
+        return Ok(ApiResponse<object>.Ok(null!, "User promoted to admin successfully"));
+    }
 }

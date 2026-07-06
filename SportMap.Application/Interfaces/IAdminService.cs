@@ -30,4 +30,8 @@ public interface IAdminService
     Task<List<UserListResponse>> GetAllOwnersAsync();
 
     Task<List<VenueListResponse>> GetAllVenuesListAsync();
+
+    Task<List<VenueResponse>> GetDeletedVenuesAsync();
+
+    Task PromoteToAdminAsync(int userId);
 }

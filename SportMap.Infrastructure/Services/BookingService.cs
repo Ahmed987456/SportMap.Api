@@ -125,7 +125,7 @@ public class BookingService : IBookingService
         return bookings.Select(ToResponse).ToList();
     }
 
-    public async Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId)
+    public async Task<List<BookingResponse>> GetVenueBookingsAsync(int venueId, int ownerId, DateOnly? date = null)
     {
         var venue = await _context.Venues
             .FirstOrDefaultAsync(v => v.Id == venueId);
@@ -136,12 +136,20 @@ public class BookingService : IBookingService
         if (venue.OwnerId != ownerId)
             throw new Exception("Unauthorized");
 
-        var bookings = await _context.Bookings
+        var query = _context.Bookings
             .Include(b => b.Venue)
             .Include(b => b.Player)
             .Include(b => b.TimeSlot)
-            .Where(b => b.VenueId == venueId)
+            .Where(b => b.VenueId == venueId);
+
+        if (date.HasValue)
+        {
+            query = query.Where(b => b.BookingDate == date.Value);
+        }
+
+        var bookings = await query
             .OrderByDescending(b => b.BookingDate)
+            .ThenBy(b => b.TimeSlot.StartTime)
             .ToListAsync();
 
         return bookings.Select(ToResponse).ToList();
@@ -193,7 +201,7 @@ public class BookingService : IBookingService
             booking.PlayerId,
             "تم تأكيد حجزك ✅",
             $"حجزك في {booking.Venue.Name} يوم {booking.BookingDate} اتأكد!",
-             "/player/bookings"
+             "/player/bookings?tab=confirmed"
         );
     }
 
@@ -267,7 +275,7 @@ public class BookingService : IBookingService
             booking.PlayerId,
             "تم تأكيد دفعك وحجزك ✅",
             $"تم تأكيد حجزك في {booking.Venue.Name} يوم {booking.BookingDate}",
-            "/player/bookings"
+            "/player/bookings?tab=confirmed"
         );
     }
 
@@ -308,7 +316,7 @@ public class BookingService : IBookingService
             booking.PlayerId,
             "الرقم المرجعي غير صحيح ❌",
             $"تم إلغاء حجزك في {booking.Venue.Name} لأن الرقم المرجعي غير صحيح. احجز من جديد وأرسل الرقم الصحيح",
-            "/player/bookings"
+            "/player/bookings?tab=cancelled"
         );
     }
 

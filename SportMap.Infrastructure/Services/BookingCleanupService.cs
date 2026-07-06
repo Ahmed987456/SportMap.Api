@@ -50,7 +50,7 @@ public class BookingCleanupService : BackgroundService
                             booking.PlayerId,
                             "تم إلغاء حجزك تلقائياً ⏰",
                             $"تم إلغاء حجزك في {booking.Venue.Name} لأنك لم تكمل الدفع في الوقت المحدد",
-                            "/player/bookings"
+                            "/player/bookings?tab=cancelled"
                         );
                     }
                     catch { }
