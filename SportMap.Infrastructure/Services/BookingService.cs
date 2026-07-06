@@ -91,8 +91,6 @@ public class BookingService : IBookingService
 
             _context.Bookings.Add(booking);
 
-            // 🔥 أهم سطر في المشروع كله
-            slot.IsAvailable = false;
 
             await _context.SaveChangesAsync();
 
@@ -167,11 +165,9 @@ public class BookingService : IBookingService
         booking.Status = BookingStatus.Cancelled;
         booking.UpdatedAt = DateTime.UtcNow;
 
-        // 🔥 أهم سطر (ده اللي كان ناقص عندك)
-        booking.TimeSlot.IsAvailable = true;
-
         await _context.SaveChangesAsync();
     }
+
     public async Task ConfirmAsync(int bookingId, int ownerId)
     {
         var booking = await _context.Bookings
