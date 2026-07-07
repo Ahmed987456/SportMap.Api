@@ -26,6 +26,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف الملاعب اللي لسه مستنية موافقة
     /// </summary>
     [HttpGet("venues/pending")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetPendingVenues()
     {
         var venues = await _adminService.GetPendingVenuesAsync();
@@ -36,6 +37,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف كل الملاعب حتى المحذوفة والموقوفة
     /// </summary>
     [HttpGet("venues")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetAllVenues()
     {
         var venues = await _adminService.GetAllVenuesAsync();
@@ -81,6 +83,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يوافق على ملعب عشان يظهر للاعبين
     /// </summary>
     [HttpPatch("venues/{venueId}/approve")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> ApproveVenue(int venueId)
     {
         await _adminService.ApproveVenueAsync(venueId);
@@ -91,6 +94,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يوقف ملعب ويخفيه من اللاعبين
     /// </summary>
     [HttpPatch("venues/{venueId}/suspend")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> SuspendVenue(int venueId)
     {
         await _adminService.SuspendVenueAsync(venueId);
@@ -101,6 +105,7 @@ public class AdminController : ControllerBase
     /// أدمن فقط — يعمل ريسيت للداتا بيز
     /// </summary>
     [HttpPost("reset-demo-data")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> ResetDemoData()
     {
         await _adminService.ResetDemoDataAsync();
@@ -116,6 +121,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف كل اللاعبين
     /// </summary>
     [HttpGet("players")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetAllPlayers()
     {
         var players = await _adminService.GetAllPlayersAsync();
@@ -126,6 +132,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف كل أصحاب الملاعب
     /// </summary>
     [HttpGet("owners")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetAllOwners()
     {
         var owners = await _adminService.GetAllOwnersAsync();
@@ -136,6 +143,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف كل الملاعب
     /// </summary>
     [HttpGet("venues-list")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetAllVenuesList()
     {
         var venues = await _adminService.GetAllVenuesListAsync();
@@ -146,6 +154,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يشوف كل الملاعب المحذوفه
     /// </summary>
     [HttpGet("venues/deleted")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> GetDeletedVenues()
     {
         var venues = await _adminService.GetDeletedVenuesAsync();
@@ -156,6 +165,7 @@ public class AdminController : ControllerBase
     /// 👑 أدمن فقط — يرقي مستخدم (لاعب أو صاحب ملعب) ليصبح أدمن
     /// </summary>
     [HttpPatch("users/{userId}/promote")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> PromoteToAdmin(int userId)
     {
         await _adminService.PromoteToAdminAsync(userId);
